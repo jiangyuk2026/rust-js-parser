@@ -1,3 +1,4 @@
+use crate::exp::function_exp::build_function;
 use crate::exp::object_exp::build_object;
 use crate::lex::Token;
 use crate::node::Node;
@@ -37,6 +38,9 @@ pub fn parse_expression(parser: &mut Parser, min_level: u8) -> Result<Box<Node>,
             "{" => build_object(parser),
             _ => Err("expect control,".to_string()),
         };
+    }
+    if parser.current == Token::Function {
+        return Ok(build_function(parser, false)?);
     }
     let mut left: Box<Node>;
 

@@ -12,6 +12,13 @@ pub enum Node {
     StringLiteral {
         value: String,
     },
+    BooleanLiteral {
+        value: bool,
+    },
+    RegExpLiteral {
+        pattern: String,
+        flags: String,
+    },
     ObjectExpression {
         properties: Vec<Node>,
     },
@@ -78,6 +85,15 @@ pub enum Node {
         params: Vec<Node>,
         body: Box<Node>,
     },
+    FunctionExpression {
+        id: Option<Box<Node>>,
+        params: Vec<Node>,
+        body: Box<Node>,
+    },
+    ArrowFunctionExpression {
+        params: Vec<Node>,
+        body: Box<Node>,
+    },
     AssignmentPattern {
         left: Box<Node>,
         right: Box<Node>,
@@ -101,9 +117,5 @@ pub enum Node {
     },
     ReturnStatement {
         argument: Box<Node>,
-    },
-    ArrowFunctionExpression {
-        params: Vec<Node>,
-        body: Box<Node>,
     },
 }

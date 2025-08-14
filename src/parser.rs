@@ -54,7 +54,7 @@ impl Parser {
                     ast.push(*build_for(parser)?);
                 }
                 Token::Function => {
-                    ast.push(*build_function(parser)?);
+                    ast.push(*build_function(parser, true)?);
                 }
                 Token::If => {
                     ast.push(*build_if(parser)?);
