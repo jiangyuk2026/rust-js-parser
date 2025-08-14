@@ -82,17 +82,17 @@ pub fn parse_expression(parser: &mut Parser, min_level: u8) -> Result<Box<Node>,
                     if let SequenceExpression { expressions } = *left {
                         let mut exp = vec![];
                         exp.extend(expressions);
-                        exp.push(right);
+                        exp.push(*right);
                         left = Box::new(SequenceExpression { expressions: exp })
                     } else {
                         left = Box::new(SequenceExpression {
-                            expressions: vec![left, right],
+                            expressions: vec![*left, *right],
                         })
                     }
                 }
                 "=" => {
                     parser.next();
-                    let right = parse_expression(parser, l + 1)?;
+                    let right = parse_expression(parser, l)?;
                     left = Box::new(Node::AssignmentExpression {
                         operator: s.to_string(),
                         left,
@@ -141,14 +141,14 @@ pub fn parse_expression(parser: &mut Parser, min_level: u8) -> Result<Box<Node>,
                 }
                 "(" => {
                     parser.next();
-                    let mut arguments: Vec<Box<Node>> = vec![];
+                    let mut arguments: Vec<Node> = vec![];
                     loop {
                         let next = &parser.current;
                         if is_ctrl_word(&next, ")") {
                             break;
                         }
                         let express = parse_expression(parser, 1)?;
-                        arguments.push(express);
+                        arguments.push(*express);
                         let current = &parser.current.clone();
                         if is_ctrl_word(&current, ",") {
                             parser.next();

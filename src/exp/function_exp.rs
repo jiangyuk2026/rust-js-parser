@@ -7,7 +7,7 @@ use crate::parser::Parser;
 pub fn build_function(parser: &mut Parser) -> Result<Box<Node>, String> {
     let id: Box<Node>;
     let mut params: Vec<Node> = vec![];
-    let body: Vec<Node>;
+    let body: Box<Node>;
 
     expect_keyword(&parser.current, Token::Function)?;
     parser.next();
@@ -62,23 +62,8 @@ pub fn build_function(parser: &mut Parser) -> Result<Box<Node>, String> {
 
     expect(&parser.current, ")")?;
     parser.next();
-    expect(&parser.current, "{")?;
-    parser.next();
-
-    if is_ctrl_word(&parser.current, "}") {
-        body = vec![];
-    } else {
-        body = Parser::parse_statement_list(parser)?;
-    }
-
-    expect(&parser.current, "}")?;
-    parser.next();
-
-    ok_box(FunctionDeclaration {
-        id,
-        params,
-        body: Box::new(BlockStatement { body }),
-    })
+    body = Parser::parse_block(parser)?;
+    ok_box(FunctionDeclaration { id, params, body })
 }
 
 #[cfg(test)]

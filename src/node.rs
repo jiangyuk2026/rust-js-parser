@@ -19,12 +19,15 @@ pub enum Node {
         key: Box<Node>,
         value: Box<Node>,
     },
+    ObjectPattern {
+        properties: Vec<Node>,
+    },
     SequenceExpression {
-        expressions: Vec<Box<Node>>,
+        expressions: Vec<Node>,
     },
     VariableDeclaration {
         kind: Token,
-        declarations: Vec<Box<Node>>,
+        declarations: Vec<Node>,
     },
     VariableDeclarator {
         id: Box<Node>,
@@ -62,13 +65,13 @@ pub enum Node {
     },
     CallExpression {
         callee: Box<Node>,
-        arguments: Vec<Box<Node>>,
+        arguments: Vec<Node>,
     },
     ForStatement {
         init: Box<Node>,
         test: Box<Node>,
         update: Box<Node>,
-        body: Vec<Node>,
+        body: Box<Node>,
     },
     FunctionDeclaration {
         id: Box<Node>,
@@ -89,11 +92,11 @@ pub enum Node {
     },
     TryStatement {
         block: Box<Node>,
-        handle: Box<Node>,
-        finalizer: Box<Node>,
+        handle: Option<Box<Node>>,
+        finalizer: Option<Box<Node>>,
     },
     CatchClause {
-        param: Box<Node>,
+        param: Option<Box<Node>>,
         body: Box<Node>,
     },
     ReturnStatement {

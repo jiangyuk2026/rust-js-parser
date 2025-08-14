@@ -2,9 +2,11 @@ use crate::exp::declaration_exp::build_let;
 use crate::exp::for_exp::build_for;
 use crate::exp::function_exp::build_function;
 use crate::exp::if_exp::build_if;
-use crate::express::parse_expression;
+use crate::exp::try_exp::build_try;
+use crate::express::{expect, is_ctrl_word, parse_expression};
 use crate::lex::{Lex, Token};
 use crate::node::Node;
+use crate::node::Node::BlockStatement;
 
 pub struct Parser {
     pub current: Token,
@@ -57,12 +59,29 @@ impl Parser {
                 Token::If => {
                     ast.push(*build_if(parser)?);
                 }
+                Token::Try => {
+                    ast.push(*build_try(parser)?);
+                }
                 _ => {
                     ast.push(*parse_expression(parser, 0)?);
                 }
             }
         }
         Ok(ast)
+    }
+
+    pub fn parse_block(parser: &mut Parser) -> Result<Box<Node>, String> {
+        let consequent: Box<Node>;
+        if !is_ctrl_word(&parser.current, "{") {
+            return Err("handle_block expect {".to_string());
+        }
+        parser.next();
+        consequent = Box::new(BlockStatement {
+            body: Parser::parse_statement_list(parser)?,
+        });
+        expect(&parser.current, "}")?;
+        parser.next();
+        Ok(consequent)
     }
 
     pub fn parse(&mut self) -> Result<Vec<Node>, String> {

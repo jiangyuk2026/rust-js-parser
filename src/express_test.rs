@@ -1,8 +1,6 @@
 #[cfg(test)]
 mod test {
-
     use crate::lex::Token;
-    use crate::node::Node;
     use crate::node::Node::*;
     use crate::parser::Parser;
 
@@ -10,6 +8,15 @@ mod test {
     fn test_dot() {
         let mut parser = Parser::new("a.b.c".to_string());
         let ast = parser.parse();
+        assert!(ast.is_ok());
+        assert_eq!(parser.current, Token::EOF);
+    }
+
+    #[test]
+    fn test_equal() {
+        let mut parser = Parser::new("a = b = c".to_string());
+        let ast = parser.parse();
+        println!("{:#?}", ast);
         assert!(ast.is_ok());
         assert_eq!(parser.current, Token::EOF);
     }

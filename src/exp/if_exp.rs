@@ -21,12 +21,7 @@ pub fn build_if(parser: &mut Parser) -> Result<Box<Node>, String> {
     parser.next();
 
     if is_ctrl_word(&parser.current, "{") {
-        parser.next();
-        consequent = Box::new(BlockStatement {
-            body: Parser::parse_statement_list(parser)?,
-        });
-        expect(&parser.current, "}")?;
-        parser.next();
+        consequent = Parser::parse_block(parser)?;
     } else if is_ctrl_word(&parser.current, ";") {
         consequent = Box::new(EmptyStatement {});
         parser.next();
@@ -37,12 +32,7 @@ pub fn build_if(parser: &mut Parser) -> Result<Box<Node>, String> {
     if parser.current == Token::Else {
         parser.next();
         if is_ctrl_word(&parser.current, "{") {
-            parser.next();
-            alternate = Some(Box::new(BlockStatement {
-                body: Parser::parse_statement_list(parser)?,
-            }));
-            expect(&parser.current, "}")?;
-            parser.next();
+            alternate = Some(Parser::parse_block(parser)?);
         } else {
             alternate = Some(Box::new(EmptyStatement {}));
         }

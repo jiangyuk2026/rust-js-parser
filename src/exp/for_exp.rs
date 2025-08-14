@@ -9,7 +9,7 @@ pub fn build_for(parser: &mut Parser) -> Result<Box<Node>, String> {
     let init: Box<Node>;
     let test: Box<Node>;
     let update: Box<Node>;
-    let mut body: Vec<Node> = vec![];
+    let body: Box<Node>;
     expect_keyword(&parser.current, Token::For)?;
     parser.next();
     expect(&parser.current, "(")?;
@@ -44,13 +44,9 @@ pub fn build_for(parser: &mut Parser) -> Result<Box<Node>, String> {
     expect(&parser.current, ")")?;
     parser.next();
     if is_ctrl_word(&parser.current, "{") {
-        parser.next();
-        if !is_ctrl_word(&parser.current, "}") {
-            body.push(*parse_expression(parser, 0)?);
-        }
-        expect(&parser.current, "}")?;
-        parser.next();
+        body = Parser::parse_block(parser)?;
     } else if is_ctrl_word(&parser.current, ";") {
+        body = Box::new(EmptyStatement {});
         parser.next();
     } else {
         return Err("for body error".to_string());
@@ -86,6 +82,13 @@ mod test {
     #[test]
     fn test_for_empty2() {
         let mut parser = Parser::new("for(let i =1; i < 10;i++);".to_string());
+        let ast = parser.parse();
+        assert_eq!(parser.current, Token::EOF)
+    }
+
+    #[test]
+    fn for_body() {
+        let mut parser = Parser::new("for(let i =1; i < 10;i++){let a = 1;let b= 2;}".to_string());
         let ast = parser.parse();
         assert_eq!(parser.current, Token::EOF)
     }

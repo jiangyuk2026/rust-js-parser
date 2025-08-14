@@ -8,14 +8,14 @@ pub fn build_let(parser: &mut Parser) -> Result<Box<Node>, String> {
     let kind = expect_keys(&parser.current, &vec![Token::Var, Token::Let])?;
     parser.next();
     let mut declarations = vec![];
-    declarations.push(build_declarator(parser)?);
+    declarations.push(*build_declarator(parser)?);
     loop {
         let c2 = &parser.current;
         match c2 {
             Token::Control(s) => match s.as_str() {
                 "," => {
                     parser.next();
-                    declarations.push(build_declarator(parser)?);
+                    declarations.push(*build_declarator(parser)?);
                 }
                 "\r" | "\n" => {
                     parser.next();
