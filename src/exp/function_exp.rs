@@ -33,7 +33,7 @@ pub fn build_function(parser: &mut Parser) -> Result<Box<Node>, String> {
                 parser.next();
                 if is_ctrl_word(&parser.current, "=") {
                     parser.next();
-                    let default_value = parse_expression(parser, 1)?;
+                    let default_value = parse_expression(parser, 2)?;
                     params.push(AssignmentPattern {
                         left: Box::new(param),
                         right: default_value,

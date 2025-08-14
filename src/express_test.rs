@@ -15,7 +15,23 @@ mod test {
     }
 
     #[test]
-    fn test_array()-> Result<(), String> {
+    fn test_comma1() {
+        let mut parser = Parser::new("a,b".to_string());
+        let ast = parser.parse();
+        println!("{:#?}", ast);
+        assert_eq!(parser.current, Token::EOF);
+    }
+
+    #[test]
+    fn test_comma2() {
+        let mut parser = Parser::new("a,b,c".to_string());
+        let ast = parser.parse();
+        println!("{:#?}", ast);
+        assert_eq!(parser.current, Token::EOF);
+    }
+
+    #[test]
+    fn test_array() -> Result<(), String> {
         let mut parser = Parser::new("a[b[2]]".to_string());
         let ast = parser.parse()?;
         assert_eq!(parser.current, Token::EOF);

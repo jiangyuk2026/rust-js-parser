@@ -1,6 +1,7 @@
 use crate::exp::object_exp::build_object;
 use crate::lex::Token;
 use crate::node::Node;
+use crate::node::Node::SequenceExpression;
 use crate::parser::Parser;
 
 pub fn parse_expression(parser: &mut Parser, min_level: u8) -> Result<Box<Node>, String> {
@@ -37,18 +38,18 @@ pub fn parse_expression(parser: &mut Parser, min_level: u8) -> Result<Box<Node>,
             _ => Err("expect control,".to_string()),
         };
     }
-    let mut left: Result<Box<Node>, String>;
+    let mut left: Box<Node>;
 
     if let Token::Variable(s) = word {
-        left = ok_box(Node::Identity {
+        left = Box::new(Node::Identity {
             name: s.to_string(),
         })
     } else if let Token::Digit(d) = word {
-        left = ok_box(Node::NumericLiteral {
+        left = Box::new(Node::NumericLiteral {
             value: d.to_string(),
         })
     } else if let Token::String(d) = word {
-        left = ok_box(Node::StringLiteral {
+        left = Box::new(Node::StringLiteral {
             value: d.to_string(),
         })
     } else {
@@ -60,7 +61,7 @@ pub fn parse_expression(parser: &mut Parser, min_level: u8) -> Result<Box<Node>,
         let operator = parser.current.clone();
         match &operator {
             Token::Control(s) => match s.as_str() {
-                ";" | ":" | ")" | "]" | "," | "}" => break,
+                ";" | ":" | ")" | "]" | "}" => break,
                 _ => {}
             },
             Token::EOF => break,
@@ -75,12 +76,53 @@ pub fn parse_expression(parser: &mut Parser, min_level: u8) -> Result<Box<Node>,
 
         match &operator {
             Token::Control(s) => match s.as_str() {
+                "," => {
+                    parser.next();
+                    let right = parse_expression(parser, l + 1)?;
+                    if let SequenceExpression { expressions } = *left {
+                        let mut exp = vec![];
+                        exp.extend(expressions);
+                        exp.push(right);
+                        left = Box::new(SequenceExpression { expressions: exp })
+                    } else {
+                        left = Box::new(SequenceExpression {
+                            expressions: vec![left, right],
+                        })
+                    }
+                }
+                "=" => {
+                    parser.next();
+                    let right = parse_expression(parser, l + 1)?;
+                    left = Box::new(Node::AssignmentExpression {
+                        operator: s.to_string(),
+                        left,
+                        right,
+                    })
+                }
+                "." => {
+                    parser.next();
+                    let right = parse_expression(parser, l + 1)?;
+                    left = Box::new(Node::MemberExpression {
+                        computed: false,
+                        object: left,
+                        property: right,
+                    })
+                }
+                "+" | "-" | "*" | "/" | "%" | ">" | "<" | ">=" | "<=" => {
+                    parser.next();
+                    let right = parse_expression(parser, l + 1)?;
+                    left = Box::new(Node::BinaryExpression {
+                        operator: s.to_string(),
+                        left,
+                        right,
+                    })
+                }
                 "++" | "--" => {
                     parser.next();
                     return ok_box(Node::UpdateExpression {
                         operator: s.to_string(),
                         prefix: false,
-                        argument: left?,
+                        argument: left,
                     });
                 }
                 "?" => {
@@ -92,7 +134,7 @@ pub fn parse_expression(parser: &mut Parser, min_level: u8) -> Result<Box<Node>,
                     parser.next();
                     let alternate = parse_expression(parser, l + 1)?;
                     return ok_box(Node::ConditionalExpression {
-                        test: left?,
+                        test: left,
                         consequent,
                         alternate,
                     });
@@ -117,27 +159,9 @@ pub fn parse_expression(parser: &mut Parser, min_level: u8) -> Result<Box<Node>,
                         }
                     }
                     return ok_box(Node::CallExpression {
-                        callee: left?,
+                        callee: left,
                         arguments,
                     });
-                }
-                "=" => {
-                    parser.next();
-                    let right = parse_expression(parser, l + 1)?;
-                    left = ok_box(Node::AssignmentExpression {
-                        operator: s.to_string(),
-                        left: left?,
-                        right,
-                    })
-                }
-                "." => {
-                    parser.next();
-                    let right = parse_expression(parser, l + 1)?;
-                    left = ok_box(Node::MemberExpression {
-                        computed: false,
-                        object: left?,
-                        property: right,
-                    })
                 }
                 "[" => {
                     parser.next();
@@ -146,18 +170,9 @@ pub fn parse_expression(parser: &mut Parser, min_level: u8) -> Result<Box<Node>,
                     parser.next();
                     return ok_box(Node::MemberExpression {
                         computed: true,
-                        object: left?,
+                        object: left,
                         property: right,
                     });
-                }
-                "+" | "-" | "*" | "/" | "%" | ">" | "<" | ">=" | "<=" => {
-                    parser.next();
-                    let right = parse_expression(parser, l + 1)?;
-                    left = ok_box(Node::BinaryExpression {
-                        operator: s.to_string(),
-                        left: left?,
-                        right,
-                    })
                 }
                 _ => {
                     return Err(format!("unsupported operator {:?}", &operator));
@@ -168,11 +183,15 @@ pub fn parse_expression(parser: &mut Parser, min_level: u8) -> Result<Box<Node>,
             }
         }
     }
-    left
+    Ok(left)
 }
 
 pub fn ok_box(node: Node) -> Result<Box<Node>, String> {
     Ok(Box::new(node))
+}
+
+pub fn box_(node: Node) -> Box<Node> {
+    Box::new(node)
 }
 
 fn get_level(token: &Token) -> Result<u8, String> {

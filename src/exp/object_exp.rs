@@ -39,7 +39,7 @@ pub fn build_object(parser: &mut Parser) -> Result<Box<Node>, String> {
             parser.next();
             properties.push(ObjectProperty {
                 key: Box::new(key),
-                value: parse_expression(parser, 1)?,
+                value: parse_expression(parser, 2)?,
             });
             if is_ctrl_word(&parser.current, ",") {
                 parser.next();

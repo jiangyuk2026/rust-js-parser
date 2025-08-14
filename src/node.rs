@@ -82,4 +82,25 @@ pub enum Node {
     BlockStatement {
         body: Vec<Node>,
     },
+    IfStatement {
+        test: Box<Node>,
+        consequent: Box<Node>,
+        alternate: Option<Box<Node>>,
+    },
+    TryStatement {
+        block: Box<Node>,
+        handle: Box<Node>,
+        finalizer: Box<Node>,
+    },
+    CatchClause {
+        param: Box<Node>,
+        body: Box<Node>,
+    },
+    ReturnStatement {
+        argument: Box<Node>,
+    },
+    ArrowFunctionExpression {
+        params: Vec<Node>,
+        body: Box<Node>,
+    },
 }

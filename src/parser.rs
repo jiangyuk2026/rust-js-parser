@@ -1,6 +1,7 @@
 use crate::exp::declaration_exp::build_let;
 use crate::exp::for_exp::build_for;
 use crate::exp::function_exp::build_function;
+use crate::exp::if_exp::build_if;
 use crate::express::parse_expression;
 use crate::lex::{Lex, Token};
 use crate::node::Node;
@@ -52,6 +53,9 @@ impl Parser {
                 }
                 Token::Function => {
                     ast.push(*build_function(parser)?);
+                }
+                Token::If => {
+                    ast.push(*build_if(parser)?);
                 }
                 _ => {
                     ast.push(*parse_expression(parser, 0)?);
