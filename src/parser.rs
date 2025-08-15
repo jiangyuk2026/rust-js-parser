@@ -2,11 +2,12 @@ use crate::exp::declaration_exp::build_let;
 use crate::exp::for_exp::build_for;
 use crate::exp::function_exp::build_function;
 use crate::exp::if_exp::build_if;
+use crate::exp::switch_exp::build_switch;
 use crate::exp::try_exp::build_try;
 use crate::express::{expect, is_ctrl_word, parse_expression};
 use crate::lex::{Lex, Token};
 use crate::node::Node;
-use crate::node::Node::BlockStatement;
+use crate::node::Node::{BlockStatement, BreakStatement, ReturnStatement};
 
 pub struct Parser {
     pub current: Token,
@@ -45,8 +46,11 @@ impl Parser {
                         parser.next();
                     }
                     "}" => break,
-                    _ => ast.push(*parse_expression(parser, 1)?),
+                    _ => ast.push(*parse_expression(parser, 0)?),
                 },
+                Token::Case | Token::Default => {
+                    break;
+                }
                 Token::Var | Token::Let | Token::Const => {
                     ast.push(*build_let(parser)?);
                 }
@@ -61,6 +65,19 @@ impl Parser {
                 }
                 Token::Try => {
                     ast.push(*build_try(parser)?);
+                }
+                Token::Switch => {
+                    ast.push(*build_switch(parser)?);
+                }
+                Token::Return => {
+                    parser.next();
+                    ast.push(ReturnStatement {
+                        argument: parse_expression(parser, 0)?,
+                    })
+                }
+                Token::Break => {
+                    parser.next();
+                    ast.push(BreakStatement { label: None })
                 }
                 _ => {
                     ast.push(*parse_expression(parser, 0)?);
@@ -101,5 +118,14 @@ mod parser_test {
         assert_eq!(Token::Let, parser.current);
         parser.next();
         assert_eq!(Token::Variable("a".to_string()), parser.current);
+    }
+
+    #[test]
+    fn test_return() {
+        let mut parser = Parser::new("return 1+2;".to_string());
+        let ast = parser.parse();
+        if let Err(e) = ast {
+            eprintln!("e: {:?}", e)
+        }
     }
 }

@@ -118,4 +118,19 @@ pub enum Node {
     ReturnStatement {
         argument: Box<Node>,
     },
+    SwitchStatement {
+        discriminant: Box<Node>,
+        cases: Vec<Node>,
+    },
+    SwitchCase {
+        test: Option<Box<Node>>,
+        consequent: Vec<Node>,
+    },
+    LabeledStatement {
+        label: Box<Node>,
+        body: Box<Node>,
+    },
+    BreakStatement {
+        label: Option<Box<Node>>,
+    },
 }

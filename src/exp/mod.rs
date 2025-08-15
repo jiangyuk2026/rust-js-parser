@@ -4,3 +4,4 @@ pub mod function_exp;
 pub mod object_exp;
 pub mod if_exp;
 pub mod try_exp;
+pub mod switch_exp;

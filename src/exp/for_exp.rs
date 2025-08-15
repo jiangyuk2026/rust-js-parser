@@ -14,10 +14,9 @@ pub fn build_for(parser: &mut Parser) -> Result<Box<Node>, String> {
     parser.next();
     expect(&parser.current, "(")?;
     parser.next();
-    let part1 = &parser.current;
-    if *part1 == Token::Let {
+    if parser.current == Token::Let {
         init = build_let(parser)?;
-    } else if is_ctrl_word(&part1, ";") {
+    } else if is_ctrl_word(&parser.current, ";") {
         init = Box::new(EmptyStatement {});
     } else {
         init = parse_expression(parser, 0)?;
@@ -25,8 +24,7 @@ pub fn build_for(parser: &mut Parser) -> Result<Box<Node>, String> {
 
     expect(&parser.current, ";")?;
     parser.next();
-    let part2 = &parser.current;
-    if is_ctrl_word(&part2, ";") {
+    if is_ctrl_word(&parser.current, ";") {
         test = Box::new(EmptyStatement {});
     } else {
         test = parse_expression(parser, 0)?;
@@ -34,8 +32,7 @@ pub fn build_for(parser: &mut Parser) -> Result<Box<Node>, String> {
 
     expect(&parser.current, ";")?;
     parser.next();
-    let part3 = &parser.current;
-    if is_ctrl_word(&part3, ")") {
+    if is_ctrl_word(&parser.current, ")") {
         update = Box::new(EmptyStatement {});
     } else {
         update = parse_expression(parser, 0)?;

@@ -149,6 +149,7 @@ pub fn parse_expression(parser: &mut Parser, min_level: u8) -> Result<Box<Node>,
                     loop {
                         let next = &parser.current;
                         if is_ctrl_word(&next, ")") {
+                            parser.next();
                             break;
                         }
                         let express = parse_expression(parser, 1)?;
