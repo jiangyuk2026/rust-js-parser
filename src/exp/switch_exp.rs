@@ -71,6 +71,19 @@ mod test_switch_statement {
     }
 
     #[test]
+    fn test_case_empty() {
+        let str = r#"
+        switch (3) {
+            case 1:
+        }
+        "#;
+        let mut parser = Parser::new(str.to_string());
+        let ast = parser.parse();
+        println!("{ast:#?}");
+        assert_eq!(parser.current, Token::EOF)
+    }
+
+    #[test]
     fn test_switch_case() {
         let str = r#"
         switch (a) {
@@ -89,35 +102,33 @@ mod test_switch_statement {
     #[test]
     fn test_switch_case_default() {
         let str = r#"
+            switch (console.log()) {
+                case 1:
+                case 3:
+                case 2: {
 
-switch (console.log()) {
-    case 1:
-    case 3:
-    case 2: {
+                    console.log(1)
+                    console.log(1)
+                    console.log(1)
+                    console.log(1)
+                }
+                default:
+                    break;
+                case 3:
+                    console.log(1)
+                    console.log(1)
+                    console.log(1)
+                    console.log(1)
+            }
 
-        console.log(1)
-        console.log(1)
-        console.log(1)
-        console.log(1)
-    }
-    default:
-        break;
-    case 3:
-        console.log(1)
-        console.log(1)
-        console.log(1)
-        console.log(1)
-}
-
-switch (a) {
-    case 1:
-    case 2: {
-        let b = 2;
-    }
-    default: {
-    }
-}
-
+            switch (a) {
+                case 1:
+                case 2: {
+                    let b = 2;
+                }
+                default: {
+                }
+            }
         "#;
         let mut parser = Parser::new(str.to_string());
         let ast = parser.parse();
