@@ -176,6 +176,7 @@ fn read_word(i: &mut usize, source: &str) -> Token {
         "continue" => Token::Continue,
         "for" => Token::For,
         "while" => Token::While,
+        "return" => Token::Return,
         "true" => Token::True,
         "false" => Token::False,
         "else" => Token::Else,
