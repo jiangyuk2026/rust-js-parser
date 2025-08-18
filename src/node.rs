@@ -3,7 +3,7 @@ use crate::lex::Token;
 #[derive(Debug, PartialEq)]
 pub enum Extra {
     None,
-    Parenthesized
+    Parenthesized,
 }
 
 #[derive(Debug, PartialEq)]
@@ -34,6 +34,9 @@ pub enum Node {
     },
     ObjectPattern {
         properties: Vec<Node>,
+    },
+    ArrayPattern {
+        elements: Vec<Node>,
     },
     SequenceExpression {
         expressions: Vec<Node>,
