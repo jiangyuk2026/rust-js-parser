@@ -1,6 +1,12 @@
 use crate::lex::Token;
 
 #[derive(Debug, PartialEq)]
+pub enum Extra {
+    None,
+    Parenthesized,
+}
+
+#[derive(Debug, PartialEq)]
 pub enum Node {
     EmptyStatement {},
     Identity {
@@ -29,8 +35,12 @@ pub enum Node {
     ObjectPattern {
         properties: Vec<Node>,
     },
+    ArrayPattern {
+        elements: Vec<Node>,
+    },
     SequenceExpression {
         expressions: Vec<Node>,
+        extra: Extra,
     },
     VariableDeclaration {
         kind: Token,
@@ -49,6 +59,7 @@ pub enum Node {
         left: Box<Node>,
         operator: String,
         right: Box<Node>,
+        extra: Extra,
     },
     UnaryExpression {
         operator: String,
@@ -123,7 +134,7 @@ pub enum Node {
         cases: Vec<Node>,
     },
     SwitchCase {
-        test: Box<Node>,
+        test: Option<Box<Node>>,
         consequent: Vec<Node>,
     },
     LabeledStatement {
@@ -131,6 +142,6 @@ pub enum Node {
         body: Box<Node>,
     },
     BreakStatement {
-        label: Box<Node>,
+        label: Option<Box<Node>>,
     },
 }

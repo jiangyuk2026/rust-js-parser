@@ -83,4 +83,13 @@ mod test_object {
         println!("{ast:#?}");
         assert_eq!(parser.current, Token::EOF)
     }
+
+
+    #[test]
+    fn test_object_deep() {
+        let mut parser = Parser::new("a = {b: 1,c: {d: 2}}".to_string());
+        let ast = parser.parse();
+        println!("{ast:#?}");
+        assert_eq!(parser.current, Token::EOF)
+    }
 }

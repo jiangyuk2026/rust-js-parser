@@ -22,6 +22,15 @@ mod test {
     }
 
     #[test]
+    fn test_brackets() {
+        let mut parser = Parser::new("a  = ((1))".to_string());
+        let ast = parser.parse();
+        println!("{:#?}", ast);
+        assert!(ast.is_ok());
+        assert_eq!(parser.current, Token::EOF);
+    }
+
+    #[test]
     fn test_comma1() {
         let mut parser = Parser::new("a,b".to_string());
         let ast = parser.parse();
@@ -65,6 +74,33 @@ mod test {
     fn test_call() {
         let mut parser = Parser::new("c = a ? b(d,e,f) : 2+3".to_string());
         let ast = parser.parse();
+        assert!(ast.is_ok());
+        assert_eq!(parser.current, Token::EOF);
+    }
+
+    #[test]
+    fn test_call_2() {
+        let mut parser = Parser::new("a(b.c())".to_string());
+        let ast = parser.parse();
+        println!("{:#?}", ast);
+        assert!(ast.is_ok());
+        assert_eq!(parser.current, Token::EOF);
+    }
+
+    #[test]
+    fn test_arrow_function() {
+        let mut parser = Parser::new("let a = ()=> {}".to_string());
+        let ast = parser.parse();
+        println!("{:#?}", ast);
+        assert!(ast.is_ok());
+        assert_eq!(parser.current, Token::EOF);
+    }
+
+    #[test]
+    fn test_arrow_function_with_params() {
+        let mut parser = Parser::new("let a = (a= 1, b)=> {}".to_string());
+        let ast = parser.parse();
+        println!("{:#?}", ast);
         assert!(ast.is_ok());
         assert_eq!(parser.current, Token::EOF);
     }
