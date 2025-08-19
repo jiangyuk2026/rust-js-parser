@@ -13,6 +13,14 @@ mod test {
     }
 
     #[test]
+    fn test_array() {
+        let mut parser = Parser::new("a = [1,2,3]".to_string());
+        let ast = parser.parse();
+        assert!(ast.is_ok());
+        assert_eq!(parser.current, Token::EOF);
+    }
+
+    #[test]
     fn test_equal() {
         let mut parser = Parser::new("a = b = c".to_string());
         let ast = parser.parse();
@@ -47,7 +55,7 @@ mod test {
     }
 
     #[test]
-    fn test_array() -> Result<(), String> {
+    fn test_array2() -> Result<(), String> {
         let mut parser = Parser::new("a[b[2]]".to_string());
         let ast = parser.parse()?;
         assert_eq!(parser.current, Token::EOF);
@@ -81,6 +89,33 @@ mod test {
     #[test]
     fn test_call_2() {
         let mut parser = Parser::new("a(b.c())".to_string());
+        let ast = parser.parse();
+        println!("{:#?}", ast);
+        assert!(ast.is_ok());
+        assert_eq!(parser.current, Token::EOF);
+    }
+
+    #[test]
+    fn test_new() {
+        let mut parser = Parser::new("new A".to_string());
+        let ast = parser.parse();
+        println!("{:#?}", ast);
+        assert!(ast.is_ok());
+        assert_eq!(parser.current, Token::EOF);
+    }
+
+    #[test]
+    fn test_new_param() {
+        let mut parser = Parser::new("new A(1,2,3)".to_string());
+        let ast = parser.parse();
+        println!("{:#?}", ast);
+        assert!(ast.is_ok());
+        assert_eq!(parser.current, Token::EOF);
+    }
+
+    #[test]
+    fn test_new_and_call() {
+        let mut parser = Parser::new("new A(1,2,3)()".to_string());
         let ast = parser.parse();
         println!("{:#?}", ast);
         assert!(ast.is_ok());

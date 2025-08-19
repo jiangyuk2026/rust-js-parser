@@ -1,12 +1,12 @@
 use crate::lex::Token;
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub enum Extra {
     None,
     Parenthesized,
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub enum Node {
     EmptyStatement {},
     Identity {
@@ -85,6 +85,10 @@ pub enum Node {
         alternate: Box<Node>,
     },
     CallExpression {
+        callee: Box<Node>,
+        arguments: Vec<Node>,
+    },
+    NewExpression {
         callee: Box<Node>,
         arguments: Vec<Node>,
     },

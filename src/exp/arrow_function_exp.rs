@@ -1,9 +1,8 @@
 use crate::express::{expect, is_ctrl_word, ok_box, parse_expression};
 use crate::lex::Token;
 use crate::node::Node::{
-    ArrayExpression, ArrowFunctionExpression, AssignmentExpression, AssignmentPattern,
-    BinaryExpression, Identity, NumericLiteral, ObjectExpression, ObjectProperty,
-    SequenceExpression, StringLiteral,
+    ArrayExpression, ArrowFunctionExpression, AssignmentExpression, AssignmentPattern, Identity,
+    NumericLiteral, ObjectExpression, ObjectProperty, SequenceExpression, StringLiteral,
 };
 use crate::node::{Extra, Node};
 use crate::parser::{IsArrowFunction, Parser};
@@ -228,6 +227,14 @@ mod test_arrow_function {
         assert_eq!(parser.is_arrow_function, IsArrowFunction::Impossible);
         println!("{:#?}", r);
         Ok(())
+    }
+
+    #[test]
+    fn test_arrow_function_without_brackets() {
+        let mut parser = Parser::new("let a = b => {}".to_string());
+        let ast = parser.parse();
+        println!("{ast:#?}");
+        assert_eq!(parser.current, Token::EOF)
     }
 
     #[test]

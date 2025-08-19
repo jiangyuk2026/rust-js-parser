@@ -1,8 +1,9 @@
+use crate::exp::array_exp::build_array;
 use crate::exp::arrow_function_exp::build_possible_arrow_function;
 use crate::exp::function_exp::build_function;
 use crate::exp::object_exp::build_object;
 use crate::lex::Token;
-use crate::node::Node::SequenceExpression;
+use crate::node::Node::{NewExpression, SequenceExpression};
 use crate::node::{Extra, Node};
 use crate::parser::Parser;
 
@@ -27,7 +28,12 @@ pub fn parse_expression(parser: &mut Parser, min_level: u8) -> Result<Box<Node>,
                     argument: parse_expression(parser, l + 1)?,
                 }));
             }
-            "(" => {}
+            "(" => {
+                return build_possible_arrow_function(parser);
+            }
+            "[" => {
+                return build_array(parser);
+            }
             "{" => return build_object(parser),
             _ => return Err("expect control,".to_string()),
         };
@@ -35,10 +41,28 @@ pub fn parse_expression(parser: &mut Parser, min_level: u8) -> Result<Box<Node>,
     if parser.current == Token::Function {
         return Ok(build_function(parser, false)?);
     }
+
     let mut left: Box<Node>;
 
-    if is_ctrl_word(&parser.current, "(") {
-        return build_possible_arrow_function(parser)
+    if parser.current == Token::New {
+        parser.next();
+        let callee = parse_expression(parser, 18)?;
+        let mut arguments = vec![];
+        if is_ctrl_word(&parser.current, "(") {
+            parser.next();
+            loop {
+                if is_ctrl_word(&parser.current, ")") {
+                    break;
+                }
+                if is_ctrl_word(&parser.current, ",") {
+                    parser.next();
+                }
+                arguments.push(*parse_expression(parser, 2)?)
+            }
+            expect(&parser.current, ")")?;
+            parser.next();
+        }
+        left = Box::new(NewExpression { callee, arguments });
     } else if let Token::Variable(s) = &parser.current {
         left = Box::new(Node::Identity {
             name: s.to_string(),
@@ -109,20 +133,14 @@ pub fn parse_expression(parser: &mut Parser, min_level: u8) -> Result<Box<Node>,
                 }
                 "=>" => {
                     parser.next();
-                    let params;
                     let right;
                     if is_ctrl_word(&parser.current, "{") {
                         right = Parser::parse_block(parser)?
                     } else {
                         right = parse_expression(parser, 2)?;
                     }
-                    if let SequenceExpression { expressions, .. } = *left {
-                        params = expressions;
-                    } else {
-                        params = vec![*left];
-                    }
                     left = Box::new(Node::ArrowFunctionExpression {
-                        params,
+                        params: vec![*left],
                         body: right,
                     })
                 }

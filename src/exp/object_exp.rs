@@ -10,43 +10,50 @@ pub fn build_object(parser: &mut Parser) -> Result<Box<Node>, String> {
     expect(&parser.current, "{")?;
     parser.next();
 
-    if !is_ctrl_word(&parser.current, "}") {
-        loop {
-            let key: Node;
+    loop {
+        if is_ctrl_word(&parser.current, "}") {
+            break;
+        } else if is_ctrl_word(&parser.current, ",") {
+            parser.next();
+        }
+        let key: Node;
 
-            match &parser.current {
-                Token::Variable(s) => {
-                    key = StringLiteral {
-                        value: s.to_string(),
-                    };
-                }
-                Token::String(s) => {
-                    key = StringLiteral {
-                        value: s.to_string(),
-                    };
-                }
-                Token::Digit(s) => {
-                    key = NumericLiteral {
-                        value: s.to_string(),
-                    };
-                }
-                _ => {
-                    return Err("object property type error".to_string());
-                }
+        match &parser.current {
+            Token::Variable(s) => {
+                key = StringLiteral {
+                    value: s.to_string(),
+                };
             }
-            parser.next();
-            expect(&parser.current, ":")?;
-            parser.next();
-            properties.push(ObjectProperty {
-                key: Box::new(key),
-                value: parse_expression(parser, 2)?,
-            });
-            if is_ctrl_word(&parser.current, ",") {
-                parser.next();
-            } else {
-                break;
+            Token::String(s) => {
+                key = StringLiteral {
+                    value: s.to_string(),
+                };
+            }
+            Token::Digit(s) => {
+                key = NumericLiteral {
+                    value: s.to_string(),
+                };
+            }
+            _ => {
+                return Err("object property type error".to_string());
             }
         }
+        parser.next();
+        if is_ctrl_word(&parser.current, ",") {
+            properties.push(ObjectProperty {
+                key: Box::new(key.clone()),
+                value: Box::new(key),
+            });
+            continue;
+        } else if is_ctrl_word(&parser.current, "}") {
+            continue;
+        }
+        expect(&parser.current, ":")?;
+        parser.next();
+        properties.push(ObjectProperty {
+            key: Box::new(key),
+            value: parse_expression(parser, 2)?,
+        });
     }
 
     expect(&parser.current, "}")?;
@@ -77,13 +84,20 @@ mod test_object {
     }
 
     #[test]
+    fn test_object_simple() {
+        let mut parser = Parser::new("a = {b,c}".to_string());
+        let ast = parser.parse();
+        println!("{ast:#?}");
+        assert_eq!(parser.current, Token::EOF)
+    }
+
+    #[test]
     fn test_object_call() {
         let mut parser = Parser::new("a = {b: 1,c:d({})}".to_string());
         let ast = parser.parse();
         println!("{ast:#?}");
         assert_eq!(parser.current, Token::EOF)
     }
-
 
     #[test]
     fn test_object_deep() {
