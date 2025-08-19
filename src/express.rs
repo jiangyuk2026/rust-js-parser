@@ -286,10 +286,10 @@ pub fn expect(word: &Token, s: &str) -> Result<(), String> {
     match word {
         Token::Control(next) => {
             if next != s {
-                return Err(format!("expect {s}"));
+                return Err(format!("expect() expect: {s}"));
             }
         }
-        _ => return Err(format!("expect {s}")),
+        _ => return Err(format!("expect() expect:  {s}")),
     }
     Ok(())
 }

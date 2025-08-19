@@ -1,8 +1,9 @@
 use crate::express::{expect, is_ctrl_word, ok_box, parse_expression};
 use crate::lex::Token;
 use crate::node::Node::{
-    ArrayExpression, ArrowFunctionExpression, AssignmentPattern, Identity, NumericLiteral,
-    ObjectExpression, ObjectPattern, ObjectProperty, SequenceExpression, StringLiteral,
+    ArrayExpression, ArrowFunctionExpression, AssignmentExpression, AssignmentPattern,
+    BinaryExpression, Identity, NumericLiteral, ObjectExpression, ObjectProperty,
+    SequenceExpression, StringLiteral,
 };
 use crate::node::{Extra, Node};
 use crate::parser::{IsArrowFunction, Parser};
@@ -22,45 +23,46 @@ pub fn build_possible_arrow_function(parser: &mut Parser) -> Result<Box<Node>, S
             parser.next();
         } else if is_ctrl_word(&parser.current, "{") {
             params.push(*build_possible_object(parser)?);
-
-            expect(&parser.current, ")")?;
-            parser.next();
-            if !is_ctrl_word(&parser.current, "=>") {
-                return ok_box(SequenceExpression {
-                    expressions: params,
-                    extra: Extra::None,
-                });
-            }
         } else if is_ctrl_word(&parser.current, "(") {
             parser.is_arrow_function = IsArrowFunction::Impossible;
-            let exp = parse_expression(parser, 0);
-            expect(&parser.current, ")")?;
-            parser.next();
-            return exp;
+            params.push(*parse_expression(parser, 0)?);
         } else if is_ctrl_word(&parser.current, "[") {
+            params.push(*build_possible_array(parser)?);
         } else {
             let exp = *parse_expression(parser, 2)?;
-            if let Identity { name } = exp {
-                params.push(Identity { name });
+            if let Identity { .. } = &exp {
+            } else if let AssignmentExpression { operator, .. } = &exp {
+                if operator != "=" {
+                    parser.is_arrow_function = IsArrowFunction::Impossible;
+                }
             } else {
                 parser.is_arrow_function = IsArrowFunction::Impossible;
             }
+            params.push(exp);
         }
     }
 
     expect(&parser.current, ")")?;
     parser.next();
 
-    if is_ctrl_word(&parser.current, "=>") {
-        if parser.is_arrow_function == IsArrowFunction::Impossible {
-            return Err("syntax error".to_string());
-        }
-    } else {
-        if parser.is_arrow_function == IsArrowFunction::Must {
-            return Err("syntax error".to_string());
+    if !is_ctrl_word(&parser.current, "=>") {
+        return if parser.is_arrow_function == IsArrowFunction::Must {
+            Err("syntax error".to_string())
         } else {
-            
-        }
+            if params.len() == 0 {
+                Err("syntax error, ()".to_string())
+            } else if params.len() == 1 {
+                ok_box(params.remove(0))
+            } else {
+                ok_box(SequenceExpression {
+                    expressions: params,
+                    extra: Extra::Parenthesized,
+                })
+            }
+        };
+    }
+    if parser.is_arrow_function == IsArrowFunction::Impossible {
+        return Err("syntax error".to_string());
     }
     parser.next();
     if is_ctrl_word(&parser.current, "{") {
@@ -123,6 +125,7 @@ fn build_possible_object(parser: &mut Parser) -> Result<Box<Node>, String> {
                     value: build_possible_array(parser)?,
                 });
             } else {
+                parser.is_arrow_function = IsArrowFunction::Impossible;
                 properties.push(ObjectProperty {
                     key: Box::new(key),
                     value: parse_expression(parser, 2)?,
@@ -160,6 +163,8 @@ fn build_possible_array(parser: &mut Parser) -> Result<Box<Node>, String> {
             elements.push(*parse_expression(parser, 2)?)
         }
     }
+    expect(&parser.current, "]")?;
+    parser.next();
     Ok(Box::new(ArrayExpression { elements }))
 }
 
@@ -175,7 +180,7 @@ fn convert_params(properties: Vec<Node>) {
 #[cfg(test)]
 mod test_arrow_function {
     use crate::exp::arrow_function_exp::{
-        IsArrowFunction, build_possible_array, build_possible_object,
+        IsArrowFunction, build_possible_array, build_possible_arrow_function, build_possible_object,
     };
     use crate::lex::Token;
     use crate::parser::Parser;
@@ -192,7 +197,6 @@ mod test_arrow_function {
     #[test]
     fn object() -> Result<(), String> {
         let mut parser = Parser::new("{a: {b: {c:1}}}".to_string());
-
         let r = build_possible_object(&mut parser)?;
         assert_eq!(parser.is_arrow_function, IsArrowFunction::Impossible);
         println!("{:#?}", r);
@@ -210,8 +214,8 @@ mod test_arrow_function {
 
     #[test]
     fn arrow_function_param_array() -> Result<(), String> {
-        let mut parser = Parser::new("[{},a,b]".to_string());
-        let r = build_possible_array(&mut parser)?;
+        let mut parser = Parser::new("([{},a,b])".to_string());
+        let r = build_possible_arrow_function(&mut parser)?;
         assert_eq!(parser.is_arrow_function, IsArrowFunction::Maybe);
         println!("{:#?}", r);
         Ok(())
@@ -227,10 +231,40 @@ mod test_arrow_function {
     }
 
     #[test]
-    fn test_arrow_function2() {
+    fn test_arrow_function() {
         let mut parser = Parser::new("let a = (b,c,d) => {}".to_string());
         let ast = parser.parse();
         println!("{ast:#?}");
         assert_eq!(parser.current, Token::EOF)
+    }
+
+    #[test]
+    fn test_arrow_function2() {
+        let mut parser = Parser::new("let a = ([a,b,c]) => {}".to_string());
+        let ast = parser.parse();
+        println!("{ast:#?}");
+        assert_eq!(parser.current, Token::EOF)
+    }
+
+    #[test]
+    fn test_arrow_function3() {
+        let mut parser = Parser::new("let a = ({a: {b: {c=1}}}) => {}".to_string());
+        let ast = parser.parse();
+        println!("{ast:#?}");
+        assert_eq!(parser.current, Token::EOF)
+    }
+
+    #[test]
+    fn test_arrow_function_error() {
+        let mut parser = Parser::new("let a = ({a: 1}) => {}".to_string());
+        let ast = parser.parse();
+        assert!(ast.is_err());
+    }
+
+    #[test]
+    fn test_arrow_function_error2() {
+        let mut parser = Parser::new("let a = ()".to_string());
+        let ast = parser.parse();
+        assert!(ast.is_err());
     }
 }

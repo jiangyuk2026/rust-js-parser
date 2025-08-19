@@ -31,7 +31,7 @@ impl Parser {
         let parser = Parser {
             current: current.clone(),
             lookahead: lex.next(),
-            is_arrow_function: IsArrowFunction::Impossible,
+            is_arrow_function: IsArrowFunction::Maybe,
             list: vec![current],
             lex,
         };
