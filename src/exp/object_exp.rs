@@ -15,6 +15,7 @@ pub fn build_object(parser: &mut Parser) -> Result<Box<Node>, String> {
             break;
         } else if is_ctrl_word(&parser.current, ",") {
             parser.next();
+            continue;
         }
         let key: Node;
 

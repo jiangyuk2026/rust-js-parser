@@ -139,4 +139,21 @@ mod test {
         assert!(ast.is_ok());
         assert_eq!(parser.current, Token::EOF);
     }
+    #[test]
+    fn member_call_mix() {
+        let mut parser = Parser::new("recast.print(node).code.substring(0, limit).replace('', '')".to_string());
+        let ast = parser.parse();
+        println!("{:#?}", ast);
+        assert!(ast.is_ok());
+        assert_eq!(parser.current, Token::EOF);
+    }
+
+    #[test]
+    fn index_member_call() {
+        let mut parser = Parser::new("a[b].c(d)".to_string());
+        let ast = parser.parse();
+        println!("{:#?}", ast);
+        assert!(ast.is_ok());
+        assert_eq!(parser.current, Token::EOF);
+    }
 }

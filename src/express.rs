@@ -3,7 +3,7 @@ use crate::exp::arrow_function_exp::build_possible_arrow_function;
 use crate::exp::function_exp::build_function;
 use crate::exp::object_exp::build_object;
 use crate::lex::Token;
-use crate::node::Node::{NewExpression, SequenceExpression};
+use crate::node::Node::{BooleanLiteral, Identity, NewExpression, SequenceExpression};
 use crate::node::{Extra, Node};
 use crate::parser::Parser;
 
@@ -44,7 +44,18 @@ pub fn parse_expression(parser: &mut Parser, min_level: u8) -> Result<Box<Node>,
 
     let mut left: Box<Node>;
 
-    if parser.current == Token::New {
+    if parser.current == Token::True {
+        parser.next();
+        left = Box::new(BooleanLiteral { value: true });
+    } else if parser.current == Token::False {
+        parser.next();
+        left = Box::new(BooleanLiteral { value: false });
+    } else if parser.current == Token::Undefined {
+        parser.next();
+        left = Box::new(Identity {
+            name: "undefined".to_string(),
+        });
+    } else if parser.current == Token::New {
         parser.next();
         let callee = parse_expression(parser, 18)?;
         let mut arguments = vec![];
@@ -93,8 +104,18 @@ pub fn parse_expression(parser: &mut Parser, min_level: u8) -> Result<Box<Node>,
                 _ => {}
             },
             Token::EOF => break,
-            Token::Variable(_) => return Err("syntax error:".to_string()),
-            Token::Digit(_) => return Err("syntax error:".to_string()),
+            Token::Variable(_) => {
+                if parser.last_loc.end.line != parser.loc.start.line {
+                    break;
+                }
+                return Err("syntax error:".to_string());
+            }
+            Token::Digit(_) => {
+                if parser.last_loc.end.line != parser.loc.start.line {
+                    break;
+                }
+                return Err("syntax error:".to_string());
+            }
             _ => break,
         }
         let l = get_level(&parser.current)?;
@@ -153,7 +174,8 @@ pub fn parse_expression(parser: &mut Parser, min_level: u8) -> Result<Box<Node>,
                         property: right,
                     })
                 }
-                "+" | "-" | "*" | "/" | "%" | ">" | "<" | ">=" | "<=" => {
+                "+" | "-" | "*" | "/" | "%" | ">" | "<" | ">=" | "<=" | "==" | "===" | "!="
+                | "!==" => {
                     parser.next();
                     let right = parse_expression(parser, l + 1)?;
                     left = Box::new(Node::BinaryExpression {
@@ -205,7 +227,7 @@ pub fn parse_expression(parser: &mut Parser, min_level: u8) -> Result<Box<Node>,
                             break;
                         }
                     }
-                    return ok_box(Node::CallExpression {
+                    left = Box::new(Node::CallExpression {
                         callee: left,
                         arguments,
                     });
@@ -215,7 +237,7 @@ pub fn parse_expression(parser: &mut Parser, min_level: u8) -> Result<Box<Node>,
                     let right = parse_expression(parser, l)?;
                     expect(&parser.current, "]")?;
                     parser.next();
-                    return ok_box(Node::MemberExpression {
+                    left = Box::new(Node::MemberExpression {
                         computed: true,
                         object: left,
                         property: right,

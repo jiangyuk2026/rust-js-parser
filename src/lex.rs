@@ -1,13 +1,16 @@
+use crate::lex::Token::Comment;
 use std::fmt::{Display, Formatter};
 
+#[derive(Debug, Clone)]
 pub struct Position {
-    line: usize,
-    column: usize,
+    pub line: usize,
+    pub column: usize,
 }
 
+#[derive(Debug, Clone)]
 pub struct Loc {
-    start: Position,
-    end: Position,
+    pub start: Position,
+    pub end: Position,
 }
 
 #[derive(Debug, PartialEq, Eq, Clone)]
@@ -55,6 +58,7 @@ pub enum Token {
     Digit(String),
     String(String),
     Control(String),
+    Comment(String),
     EOF,
 }
 
@@ -126,8 +130,8 @@ impl Lex {
         Lex {
             input,
             pos: 0,
-            line: 0,
-            column: 0,
+            line: 1,
+            column: 1,
         }
     }
     pub fn next(&mut self) -> (Token, Loc) {
@@ -148,23 +152,19 @@ impl Lex {
                         self.pos += 1;
                         self.column += 1;
                     }
-                    '\r' => {
-                        self.pos += 1;
-                    }
-                    '\n' => {
-                        self.pos += 1;
-                        self.line += 1;
-                        self.column = 0;
+                    '\r' | '\n' => {
+                        result = self.read_newline();
+                        break;
                     }
                     '"' | '\'' => {
                         result = self.read_string();
                         break;
                     }
-                    '=' | '+' | '-' | '*' | '/' | '%' | '>' | '<' | '|' | '?' | ':' => {
+                    '=' | '+' | '-' | '*' | '/' | '%' | '>' | '<' | '|' | '?' | ':' | '!' => {
                         result = self.read_operation();
                         break;
                     }
-                    ';' | '(' | ')' | '{' | '}' | '.' | '!' | ',' | '[' | ']' => {
+                    ';' | '(' | ')' | '{' | '}' | '.' | ',' | '[' | ']' => {
                         self.pos += 1;
                         self.column += 1;
                         result = Token::Control(c.to_string());
@@ -264,6 +264,8 @@ impl Lex {
                             if escaped {
                                 escaped = false;
                             } else {
+                                self.pos += 1;
+                                self.column += 1;
                                 break;
                             }
                         }
@@ -290,7 +292,7 @@ impl Lex {
                             escaped = false;
                             word.push(c);
                         } else {
-                            panic!("string format error, unsupported \\n")
+                            panic!("string format error, unsupported \\n, line: {}", self.line)
                         }
                     }
                     '\\' => {
@@ -319,6 +321,9 @@ impl Lex {
         loop {
             self.pos += 1;
             self.column += 1;
+            if word == "//" {
+                return self.read_comment();
+            }
             let c = self.input.chars().nth(self.pos);
             match c {
                 Some(c) => match c {
@@ -332,23 +337,53 @@ impl Lex {
                 None => break,
             }
         }
+
         Token::Control(word)
+    }
+
+    fn read_comment(&mut self) -> Token {
+        let mut word = String::new();
+        loop {
+            let c = self.input.chars().nth(self.pos);
+            match c {
+                Some(c) => match c {
+                    '\r' | '\n' => {
+                        break;
+                    }
+                    s => {
+                        word.push(s);
+                    }
+                },
+                None => {
+                    break;
+                }
+            }
+            self.pos += 1;
+            self.column += 1;
+        }
+        Comment(word)
     }
 
     fn read_newline(&mut self) -> Token {
         loop {
-            self.pos += 1;
-            self.column += 1;
             let c = self.input.chars().nth(self.pos);
             match c {
                 Some(c) => match c {
-                    '\r' | '\n' | ' ' | '\t' => {}
+                    '\r' | ' ' | '\t' => {
+                        self.column += 1;
+                    }
+                    '\n' => {
+                        self.line += 1;
+                        self.column = 1;
+                    }
                     _ => break,
                 },
                 _ => break,
             }
+            self.pos += 1;
+            self.column += 1;
         }
-        Token::Control("\n".to_string())
+        Token::LF
     }
 
     fn read_digit(&mut self) -> Token {
@@ -431,17 +466,34 @@ mod tests {
         let mut lex = Lex::new(input.to_string());
         assert_eq!(lex.next().0, Token::String("abcde\"fjie".to_string()));
     }
+
+    #[test]
+    fn test_comment() {
+        let input = "//abcd\n//dddd";
+        let mut lex = Lex::new(input.to_string());
+        assert_eq!(lex.next().0, Token::Comment("abcd".to_string()));
+        assert_eq!(lex.next().0, Token::LF);
+        assert_eq!(lex.next().0, Token::Comment("dddd".to_string()));
+    }
+
     #[test]
     fn test_lex() {
         let input = " \n\n\nlet\n\n\n a\n\n\n =\n\n\n 1\n\n\n + \n\n\n2\n\n\n";
         let mut lex = Lex::new(input.to_string());
 
+        assert_eq!(lex.next().0, Token::LF);
         assert_eq!(lex.next().0, Token::Let);
+        assert_eq!(lex.next().0, Token::LF);
         assert_eq!(lex.next().0, Token::Variable("a".to_string()));
+        assert_eq!(lex.next().0, Token::LF);
         assert_eq!(lex.next().0, Token::Control("=".to_string()));
+        assert_eq!(lex.next().0, Token::LF);
         assert_eq!(lex.next().0, Token::Digit("1".to_string()));
+        assert_eq!(lex.next().0, Token::LF);
         assert_eq!(lex.next().0, Token::Control("+".to_string()));
+        assert_eq!(lex.next().0, Token::LF);
         assert_eq!(lex.next().0, Token::Digit("2".to_string()));
+        assert_eq!(lex.next().0, Token::LF);
         assert_eq!(lex.next().0, Token::EOF);
     }
 }

@@ -14,6 +14,7 @@ pub fn build_array(parser: &mut Parser) -> Result<Box<Node>, String> {
             break;
         } else if is_ctrl_word(&parser.current, ",") {
             parser.next();
+            continue;
         }
         let item = parse_expression(parser, 2)?;
         elements.push(*item);

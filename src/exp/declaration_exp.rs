@@ -5,7 +5,7 @@ use crate::node::Node::{VariableDeclaration, VariableDeclarator};
 use crate::parser::Parser;
 
 pub fn build_let(parser: &mut Parser) -> Result<Box<Node>, String> {
-    let kind = expect_keys(&parser.current, &vec![Token::Var, Token::Let])?;
+    let kind = expect_keys(&parser.current, &vec![Token::Var, Token::Let, Token::Const])?;
     parser.next();
     let mut declarations = vec![];
     declarations.push(*build_declarator(parser)?);

@@ -20,6 +20,7 @@ pub fn build_possible_arrow_function(parser: &mut Parser) -> Result<Box<Node>, S
             break;
         } else if is_ctrl_word(&parser.current, ",") {
             parser.next();
+            continue;
         } else if is_ctrl_word(&parser.current, "{") {
             params.push(*build_possible_object(parser)?);
         } else if is_ctrl_word(&parser.current, "(") {
@@ -67,7 +68,7 @@ pub fn build_possible_arrow_function(parser: &mut Parser) -> Result<Box<Node>, S
     if is_ctrl_word(&parser.current, "{") {
         body = Parser::parse_block(parser)?
     } else {
-        body = parse_expression(parser, 0)?
+        body = parse_expression(parser, 2)?
     }
 
     ok_box(ArrowFunctionExpression { params, body })
@@ -85,6 +86,7 @@ fn build_possible_object(parser: &mut Parser) -> Result<Box<Node>, String> {
         }
         if is_ctrl_word(&parser.current, ",") {
             parser.next();
+            continue;
         }
         let key: Node;
 
@@ -154,6 +156,7 @@ fn build_possible_array(parser: &mut Parser) -> Result<Box<Node>, String> {
             break;
         } else if is_ctrl_word(&parser.current, ",") {
             parser.next();
+            continue;
         } else if is_ctrl_word(&parser.current, "{") {
             elements.push(*build_possible_object(parser)?)
         } else if is_ctrl_word(&parser.current, "[") {

@@ -8,6 +8,7 @@ use crate::express::{expect, is_ctrl_word, parse_expression};
 use crate::lex::{Lex, Loc, Token};
 use crate::node::Node;
 use crate::node::Node::{BlockStatement, BreakStatement, ReturnStatement};
+use std::mem::swap;
 
 #[derive(PartialEq, Debug)]
 pub enum IsArrowFunction {
@@ -21,16 +22,26 @@ pub struct Parser {
     pub is_arrow_function: IsArrowFunction,
     pub list: Vec<Token>,
     pub loc: Loc,
+    pub last_loc: Loc,
     lex: Lex,
 }
 
 impl Parser {
     pub fn new(input: String) -> Parser {
         let mut lex = Lex::new(input.to_string());
-        let (current, loc) = lex.next();
+        let mut current;
+        let mut loc;
+        loop {
+            (current, loc) = lex.next();
+            if current != Token::LF || current == Token::EOF {
+                break;
+            }
+        }
+
         let parser = Parser {
             current: current.clone(),
-            loc,
+            loc: loc.clone(),
+            last_loc: loc,
             is_arrow_function: IsArrowFunction::Maybe,
             list: vec![current],
             lex,
@@ -40,6 +51,18 @@ impl Parser {
     }
 
     pub fn next(&mut self) {
+        loop {
+            (self.current, self.last_loc) = self.lex.next();
+            self.list.push(self.current.clone());
+            if let Token::Comment { .. } = self.current {
+            } else if self.current != Token::LF || self.current == Token::EOF {
+                break;
+            }
+        }
+        swap(&mut self.loc, &mut self.last_loc);
+    }
+
+    pub fn next_with_lf(&mut self) {
         (self.current, self.loc) = self.lex.next();
         self.list.push(self.current.clone());
     }
@@ -49,6 +72,7 @@ impl Parser {
         loop {
             match &parser.current {
                 Token::EOF => break,
+                Token::LF => parser.next(),
                 Token::Control(s) => match s.as_str() {
                     ";" => {
                         parser.next();
@@ -78,10 +102,18 @@ impl Parser {
                     ast.push(*build_switch(parser)?);
                 }
                 Token::Return => {
-                    parser.next();
-                    ast.push(ReturnStatement {
-                        argument: parse_expression(parser, 0)?,
-                    })
+                    parser.next_with_lf();
+                    if parser.current == Token::LF || parser.current == Token::EOF {
+                        ast.push(ReturnStatement { argument: None })
+                    } else if is_ctrl_word(&parser.current, "}")
+                        || is_ctrl_word(&parser.current, ";")
+                    {
+                        ast.push(ReturnStatement { argument: None })
+                    } else {
+                        ast.push(ReturnStatement {
+                            argument: Some(parse_expression(parser, 0)?),
+                        })
+                    }
                 }
                 Token::Break => {
                     parser.next();

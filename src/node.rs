@@ -134,7 +134,7 @@ pub enum Node {
         body: Box<Node>,
     },
     ReturnStatement {
-        argument: Box<Node>,
+        argument: Option<Box<Node>>,
     },
     SwitchStatement {
         discriminant: Box<Node>,

@@ -1,14 +1,15 @@
 #![allow(warnings)]
 
+use crate::parser::Parser;
 use std::fs::File;
 use std::io::Read;
 
-mod express;
-mod lex;
 mod exp;
-mod parser;
+mod express;
 mod express_test;
+mod lex;
 mod node;
+mod parser;
 
 fn main() {
     let mut str = String::new();
@@ -18,5 +19,11 @@ fn main() {
         .unwrap()
         .read_to_string(&mut str)
         .expect("Failed to read file");
-    println!("{:#?}", str);
+    // println!("{:#?}", str);
+
+    let mut parser = Parser::new(str);
+    let ast = parser.parse();
+
+    println!("{:#?}", ast);
+    println!("{:#?}", parser.loc);
 }

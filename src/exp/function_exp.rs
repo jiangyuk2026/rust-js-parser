@@ -55,6 +55,7 @@ fn handle_params(parser: &mut Parser) -> Result<Vec<Node>, String> {
             break;
         } else if is_ctrl_word(&parser.current, ",") {
             parser.next();
+            continue;
         } else if let Token::Variable(s) = &parser.current {
             let param = Identity {
                 name: s.to_string(),
