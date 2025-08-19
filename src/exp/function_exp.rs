@@ -179,6 +179,8 @@ fn handle_array(parser: &mut Parser) -> Result<Node, String> {
             }
         } else if is_ctrl_word(&parser.current, "{") {
             elements.push(handle_object(parser)?);
+        } else if is_ctrl_word(&parser.current, "[") {
+            elements.push(handle_array(parser)?);
         } else {
             return Err("handle_array syntax error".to_string());
         }
@@ -284,6 +286,15 @@ mod test {
     #[test]
     fn test_function_mix() -> Result<(), String> {
         let mut parser = Parser::new("function b(c, {d: {e: [f, g, {h = 3}]}}) {}".to_string());
+        let ast = parser.parse()?;
+        println!("{ast:#?}");
+        assert_eq!(parser.current, Token::EOF);
+        Ok(())
+    }
+
+    #[test]
+    fn test_function_array3() -> Result<(), String> {
+        let mut parser = Parser::new("function a2([[b,c,d]]) {}".to_string());
         let ast = parser.parse()?;
         println!("{ast:#?}");
         assert_eq!(parser.current, Token::EOF);

@@ -25,6 +25,9 @@ pub enum Node {
         pattern: String,
         flags: String,
     },
+    ArrayExpression {
+        elements: Vec<Node>,
+    },
     ObjectExpression {
         properties: Vec<Node>,
     },

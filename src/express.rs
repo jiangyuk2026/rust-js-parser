@@ -1,3 +1,4 @@
+use crate::exp::arrow_function_exp::build_possible_arrow_function;
 use crate::exp::function_exp::build_function;
 use crate::exp::object_exp::build_object;
 use crate::lex::Token;
@@ -37,32 +38,7 @@ pub fn parse_expression(parser: &mut Parser, min_level: u8) -> Result<Box<Node>,
     let mut left: Box<Node>;
 
     if is_ctrl_word(&parser.current, "(") {
-        parser.next();
-        if is_ctrl_word(&parser.current, ")") {
-            parser.next();
-            if is_ctrl_word(&parser.current, "=>") {
-                left = Box::new(SequenceExpression {
-                    expressions: vec![],
-                    extra: Extra::None,
-                });
-            } else {
-                return Err("expect expression, but found ()".to_string());
-            }
-        } else if is_ctrl_word(&parser.current, "(") {
-            let express = parse_expression(parser, 1)?;
-            if !is_ctrl_word(&parser.current, ")") {
-                return Err("expect )".to_string());
-            }
-            parser.next();
-            return Ok(express);
-        } else {
-            let express = parse_expression(parser, 1)?;
-            if !is_ctrl_word(&parser.current, ")") {
-                return Err("expect )".to_string());
-            }
-            parser.next();
-            left = express;
-        }
+        return build_possible_arrow_function(parser)
     } else if let Token::Variable(s) = &parser.current {
         left = Box::new(Node::Identity {
             name: s.to_string(),

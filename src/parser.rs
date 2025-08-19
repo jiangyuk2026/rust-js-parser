@@ -9,9 +9,17 @@ use crate::lex::{Lex, Token};
 use crate::node::Node;
 use crate::node::Node::{BlockStatement, BreakStatement, ReturnStatement};
 
+#[derive(PartialEq, Debug)]
+pub enum IsArrowFunction {
+    Impossible,
+    Maybe,
+    Must,
+}
+
 pub struct Parser {
     pub current: Token,
     pub lookahead: Token,
+    pub is_arrow_function: IsArrowFunction,
     pub list: Vec<Token>,
     lex: Lex,
 }
@@ -23,6 +31,7 @@ impl Parser {
         let parser = Parser {
             current: current.clone(),
             lookahead: lex.next(),
+            is_arrow_function: IsArrowFunction::Impossible,
             list: vec![current],
             lex,
         };
@@ -85,6 +94,10 @@ impl Parser {
             }
         }
         Ok(ast)
+    }
+
+    pub fn parser_statement(parser: &mut Parser)-> Result<Box<Node>, String> {
+        todo!()
     }
 
     pub fn parse_block(parser: &mut Parser) -> Result<Box<Node>, String> {

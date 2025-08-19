@@ -5,3 +5,4 @@ pub mod object_exp;
 pub mod if_exp;
 pub mod try_exp;
 pub mod switch_exp;
+pub mod arrow_function_exp;
