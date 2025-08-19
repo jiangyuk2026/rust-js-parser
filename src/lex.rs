@@ -1,5 +1,15 @@
 use std::fmt::{Display, Formatter};
 
+pub struct Position {
+    line: usize,
+    column: usize,
+}
+
+pub struct Loc {
+    start: Position,
+    end: Position,
+}
+
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub enum Token {
     LF,
@@ -107,231 +117,274 @@ impl Display for Token {
 pub struct Lex {
     input: String,
     pos: usize,
+    line: usize,
+    column: usize,
 }
 
 impl Lex {
     pub fn new(input: String) -> Self {
-        Lex { input, pos: 0 }
-    }
-    pub fn next(&mut self) -> Token {
-        let str = &self.input;
-        if self.pos == str.len() {
-            return Token::EOF;
+        Lex {
+            input,
+            pos: 0,
+            line: 0,
+            column: 0,
         }
+    }
+    pub fn next(&mut self) -> (Token, Loc) {
+        let str = &self.input;
         if self.pos > str.len() {
             panic!("end of source");
         }
+        let start = Position {
+            line: self.line,
+            column: self.column,
+        };
+        let mut result;
         loop {
             let c = str.chars().nth(self.pos);
             match c {
                 Some(c) => match c {
-                    ' ' | '\r' | '\n' => self.pos += 1,
+                    ' ' => {
+                        self.pos += 1;
+                        self.column += 1;
+                    }
+                    '\r' => {
+                        self.pos += 1;
+                    }
+                    '\n' => {
+                        self.pos += 1;
+                        self.line += 1;
+                        self.column = 0;
+                    }
                     '"' | '\'' => {
-                        return read_string(&mut self.pos, &str);
+                        result = self.read_string();
+                        break;
                     }
                     '=' | '+' | '-' | '*' | '/' | '%' | '>' | '<' | '|' | '?' | ':' => {
-                        return read_operation(&mut self.pos, &str);
+                        result = self.read_operation();
+                        break;
                     }
                     ';' | '(' | ')' | '{' | '}' | '.' | '!' | ',' | '[' | ']' => {
                         self.pos += 1;
-                        return Token::Control(c.to_string());
+                        self.column += 1;
+                        result = Token::Control(c.to_string());
+                        break;
                     }
-                    '_' | 'a'..='z' | 'A'..='Z' => return read_word(&mut self.pos, &str),
-                    '0'..='9' => return read_digit(&mut self.pos, &str),
+                    '_' | 'a'..='z' | 'A'..='Z' => {
+                        result = self.read_word();
+                        break;
+                    }
+                    '0'..='9' => {
+                        result = self.read_digit();
+                        break;
+                    }
                     _ => panic!("Unrecognized character {c}"),
                 },
-                None => return Token::EOF,
+                None => {
+                    result = Token::EOF;
+                    break;
+                }
             }
         }
+        let end = Position {
+            line: self.line,
+            column: self.column,
+        };
+        (result, Loc { start, end })
     }
-}
 
-fn read_word(i: &mut usize, source: &str) -> Token {
-    let c = source.chars().nth(*i).unwrap();
-    let mut word = String::new();
-    word.push(c);
-    loop {
-        *i = *i + 1;
-        let d = source.chars().nth(*i);
-        match d {
-            Some(d) => match d {
-                '_' | 'a'..='z' | 'A'..='Z' | '0'..='9' => word.push(d),
-                _ => break,
-            },
-            None => break,
+    fn read_word(&mut self) -> Token {
+        let c = self.input.chars().nth(self.pos).unwrap();
+        let mut word = String::new();
+        word.push(c);
+        loop {
+            self.pos += 1;
+            self.column += 1;
+            let d = self.input.chars().nth(self.pos);
+            match d {
+                Some(d) => match d {
+                    '_' | 'a'..='z' | 'A'..='Z' | '0'..='9' => word.push(d),
+                    _ => break,
+                },
+                None => break,
+            }
+        }
+        match word.as_str() {
+            "var" => Token::Var,
+            "let" => Token::Let,
+            "const" => Token::Const,
+            "undefined" => Token::Undefined,
+            "null" => Token::Null,
+            "await" => Token::Await,
+            "async" => Token::Async,
+            "function" => Token::Function,
+            "with" => Token::With,
+            "if" => Token::If,
+            "switch" => Token::Switch,
+            "case" => Token::Case,
+            "default" => Token::Default,
+            "break" => Token::Break,
+            "continue" => Token::Continue,
+            "for" => Token::For,
+            "while" => Token::While,
+            "return" => Token::Return,
+            "true" => Token::True,
+            "false" => Token::False,
+            "else" => Token::Else,
+            "in" => Token::In,
+            "do" => Token::Do,
+            "try" => Token::Try,
+            "catch" => Token::Catch,
+            "finally" => Token::Finally,
+            "throw" => Token::Throw,
+            "new" => Token::New,
+            "this" => Token::This,
+            "instanceof" => Token::Instanceof,
+            "typeof" => Token::Typeof,
+            "class" => Token::Class,
+            "void" => Token::Void,
+            "yield" => Token::Yield,
+            "debugger" => Token::Debugger,
+            _ => Token::Variable(word),
         }
     }
-    match word.as_str() {
-        "var" => Token::Var,
-        "let" => Token::Let,
-        "const" => Token::Const,
-        "undefined" => Token::Undefined,
-        "null" => Token::Null,
-        "await" => Token::Await,
-        "async" => Token::Async,
-        "function" => Token::Function,
-        "with" => Token::With,
-        "if" => Token::If,
-        "switch" => Token::Switch,
-        "case" => Token::Case,
-        "default" => Token::Default,
-        "break" => Token::Break,
-        "continue" => Token::Continue,
-        "for" => Token::For,
-        "while" => Token::While,
-        "return" => Token::Return,
-        "true" => Token::True,
-        "false" => Token::False,
-        "else" => Token::Else,
-        "in" => Token::In,
-        "do" => Token::Do,
-        "try" => Token::Try,
-        "catch" => Token::Catch,
-        "finally" => Token::Finally,
-        "throw" => Token::Throw,
-        "new" => Token::New,
-        "this" => Token::This,
-        "instanceof" => Token::Instanceof,
-        "typeof" => Token::Typeof,
-        "class" => Token::Class,
-        "void" => Token::Void,
-        "yield" => Token::Yield,
-        "debugger" => Token::Debugger,
-        _ => Token::Variable(word),
-    }
-}
 
-fn read_string(i: &mut usize, source: &str) -> Token {
-    let s = source.chars().nth(*i).unwrap();
-    let mut word = String::new();
-    let mut escaped = false;
-    loop {
-        *i = *i + 1;
-        let c = source.chars().nth(*i);
-        match c {
-            Some(c) => match c {
-                '"' | '\'' => {
-                    if c == s {
+    fn read_string(&mut self) -> Token {
+        let s = self.input.chars().nth(self.pos).unwrap();
+        let mut word = String::new();
+        let mut escaped = false;
+        loop {
+            self.pos += 1;
+            self.column += 1;
+            let c = self.input.chars().nth(self.pos);
+            match c {
+                Some(c) => match c {
+                    '"' | '\'' => {
+                        if c == s {
+                            if escaped {
+                                escaped = false;
+                            } else {
+                                break;
+                            }
+                        }
+                        word.push(c);
+                    }
+                    'r' | 'n' | 't' => {
                         if escaped {
                             escaped = false;
+                            if c == 'r' {
+                                word.push('\r');
+                            }
+                            if c == 'n' {
+                                word.push('\n');
+                            }
+                            if c == 't' {
+                                word.push('\t');
+                            }
                         } else {
-                            break;
+                            word.push(c);
                         }
                     }
-                    word.push(c);
-                }
-                'r' | 'n' | 't' => {
-                    if escaped {
-                        escaped = false;
-                        if c == 'r' {
-                            word.push('\r');
+                    '\n' => {
+                        if escaped {
+                            escaped = false;
+                            word.push(c);
+                        } else {
+                            panic!("string format error, unsupported \\n")
                         }
-                        if c == 'n' {
-                            word.push('\n');
+                    }
+                    '\\' => {
+                        if escaped {
+                            escaped = false;
+                            word.push(c);
+                        } else {
+                            escaped = true;
                         }
-                        if c == 't' {
-                            word.push('\t');
-                        }
-                    } else {
+                    }
+                    _ => {
                         word.push(c);
-                    }
-                }
-                '\n' => {
-                    if escaped {
                         escaped = false;
-                        word.push(c);
-                    } else {
-                        panic!("string format error, unsupported \\n")
                     }
-                }
-                '\\' => {
-                    if escaped {
-                        escaped = false;
-                        word.push(c);
-                    } else {
-                        escaped = true;
-                    }
-                }
-                _ => {
-                    word.push(c);
-                    escaped = false;
-                }
-            },
-            None => break,
+                },
+                None => break,
+            }
         }
+        Token::String(word)
     }
-    Token::String(word)
-}
 
-fn read_operation(i: &mut usize, source: &str) -> Token {
-    let c = source.chars().nth(*i).unwrap();
-    let mut word = String::new();
-    word.push(c);
-    loop {
-        *i = *i + 1;
-        let c = source.chars().nth(*i);
-        match c {
-            Some(c) => match c {
-                '=' | '+' | '-' | '*' | '/' | '%' | '>' | '<' | '|' | '?' | ':' => {
-                    word.push(c);
-                }
-                _ => {
-                    break;
-                }
-            },
-            None => break,
+    fn read_operation(&mut self) -> Token {
+        let c = self.input.chars().nth(self.pos).unwrap();
+        let mut word = String::new();
+        word.push(c);
+        loop {
+            self.pos += 1;
+            self.column += 1;
+            let c = self.input.chars().nth(self.pos);
+            match c {
+                Some(c) => match c {
+                    '=' | '+' | '-' | '*' | '/' | '%' | '>' | '<' | '|' | '?' | ':' => {
+                        word.push(c);
+                    }
+                    _ => {
+                        break;
+                    }
+                },
+                None => break,
+            }
         }
+        Token::Control(word)
     }
-    Token::Control(word)
-}
 
-fn read_newline(i: &mut usize, source: &str) -> Token {
-    loop {
-        *i = *i + 1;
-        let c = source.chars().nth(*i);
-        match c {
-            Some(c) => match c {
-                '\r' | '\n' | ' ' | '\t' => {}
+    fn read_newline(&mut self) -> Token {
+        loop {
+            self.pos += 1;
+            self.column += 1;
+            let c = self.input.chars().nth(self.pos);
+            match c {
+                Some(c) => match c {
+                    '\r' | '\n' | ' ' | '\t' => {}
+                    _ => break,
+                },
                 _ => break,
-            },
-            _ => break,
+            }
         }
+        Token::Control("\n".to_string())
     }
-    Token::Control("\n".to_string())
-}
 
-fn read_digit(i: &mut usize, source: &str) -> Token {
-    let c = source.chars().nth(*i).unwrap();
-    let mut word = String::new();
-    let mut exponential = false;
-    word.push(c);
-    loop {
-        *i = *i + 1;
-        let c = source.chars().nth(*i);
-        match c {
-            Some(c) => match c {
-                '_' => {
-                    word.push(c);
-                }
-                '0'..='9' => {
-                    word.push(c);
-                    exponential = false;
-                }
-                'e' => {
-                    exponential = true;
-                    word.push(c);
-                }
-                _ => {
-                    break;
-                }
-            },
-            None => break,
+    fn read_digit(&mut self) -> Token {
+        let c = self.input.chars().nth(self.pos).unwrap();
+        let mut word = String::new();
+        let mut exponential = false;
+        word.push(c);
+        loop {
+            self.pos += 1;
+            self.column += 1;
+            let c = self.input.chars().nth(self.pos);
+            match c {
+                Some(c) => match c {
+                    '_' => {
+                        word.push(c);
+                    }
+                    '0'..='9' => {
+                        word.push(c);
+                        exponential = false;
+                    }
+                    'e' => {
+                        exponential = true;
+                        word.push(c);
+                    }
+                    _ => {
+                        break;
+                    }
+                },
+                None => break,
+            }
         }
+        if exponential {
+            panic!("digit syntax error");
+        }
+        Token::Digit(word)
     }
-    if exponential {
-        panic!("digit syntax error");
-    }
-    Token::Digit(word)
 }
 
 #[cfg(test)]
@@ -348,47 +401,47 @@ mod tests {
     fn test_keyword() {
         let input = "for(let i = 1; i < 10;i++)++";
         let mut lex = Lex::new(input.to_string());
-        assert_eq!(lex.next(), Token::For);
+        assert_eq!(lex.next().0, Token::For);
     }
 
     #[test]
     fn test_digit_exponential() {
         let input = "1e3";
         let mut lex = Lex::new(input.to_string());
-        assert_eq!(lex.next(), Token::Digit("1e3".to_string()));
+        assert_eq!(lex.next().0, Token::Digit("1e3".to_string()));
     }
 
     #[test]
     fn test_string_single() {
         let input = "'abcdefjie'";
         let mut lex = Lex::new(input.to_string());
-        assert_eq!(lex.next(), Token::String("abcdefjie".to_string()));
+        assert_eq!(lex.next().0, Token::String("abcdefjie".to_string()));
     }
 
     #[test]
     fn test_string_single_newline() {
         let input = "'abcdefjie\\nxx'";
         let mut lex = Lex::new(input.to_string());
-        assert_eq!(lex.next(), Token::String("abcdefjie\nxx".to_string()));
+        assert_eq!(lex.next().0, Token::String("abcdefjie\nxx".to_string()));
     }
 
     #[test]
     fn test_string_double() {
         let input = "\"abcde\\\"fjie\"";
         let mut lex = Lex::new(input.to_string());
-        assert_eq!(lex.next(), Token::String("abcde\"fjie".to_string()));
+        assert_eq!(lex.next().0, Token::String("abcde\"fjie".to_string()));
     }
     #[test]
     fn test_lex() {
         let input = " \n\n\nlet\n\n\n a\n\n\n =\n\n\n 1\n\n\n + \n\n\n2\n\n\n";
         let mut lex = Lex::new(input.to_string());
 
-        assert_eq!(lex.next(), Token::Let);
-        assert_eq!(lex.next(), Token::Variable("a".to_string()));
-        assert_eq!(lex.next(), Token::Control("=".to_string()));
-        assert_eq!(lex.next(), Token::Digit("1".to_string()));
-        assert_eq!(lex.next(), Token::Control("+".to_string()));
-        assert_eq!(lex.next(), Token::Digit("2".to_string()));
-        assert_eq!(lex.next(), Token::EOF);
+        assert_eq!(lex.next().0, Token::Let);
+        assert_eq!(lex.next().0, Token::Variable("a".to_string()));
+        assert_eq!(lex.next().0, Token::Control("=".to_string()));
+        assert_eq!(lex.next().0, Token::Digit("1".to_string()));
+        assert_eq!(lex.next().0, Token::Control("+".to_string()));
+        assert_eq!(lex.next().0, Token::Digit("2".to_string()));
+        assert_eq!(lex.next().0, Token::EOF);
     }
 }

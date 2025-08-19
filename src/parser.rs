@@ -5,7 +5,7 @@ use crate::exp::if_exp::build_if;
 use crate::exp::switch_exp::build_switch;
 use crate::exp::try_exp::build_try;
 use crate::express::{expect, is_ctrl_word, parse_expression};
-use crate::lex::{Lex, Token};
+use crate::lex::{Lex, Loc, Token};
 use crate::node::Node;
 use crate::node::Node::{BlockStatement, BreakStatement, ReturnStatement};
 
@@ -18,19 +18,19 @@ pub enum IsArrowFunction {
 
 pub struct Parser {
     pub current: Token,
-    pub lookahead: Token,
     pub is_arrow_function: IsArrowFunction,
     pub list: Vec<Token>,
+    pub loc: Loc,
     lex: Lex,
 }
 
 impl Parser {
     pub fn new(input: String) -> Parser {
         let mut lex = Lex::new(input.to_string());
-        let current = lex.next();
+        let (current, loc) = lex.next();
         let parser = Parser {
             current: current.clone(),
-            lookahead: lex.next(),
+            loc,
             is_arrow_function: IsArrowFunction::Maybe,
             list: vec![current],
             lex,
@@ -40,9 +40,8 @@ impl Parser {
     }
 
     pub fn next(&mut self) {
-        self.current = self.lookahead.clone();
+        (self.current, self.loc) = self.lex.next();
         self.list.push(self.current.clone());
-        self.lookahead = self.lex.next();
     }
 
     pub fn parse_statement_list(parser: &mut Parser) -> Result<Vec<Node>, String> {
@@ -96,7 +95,7 @@ impl Parser {
         Ok(ast)
     }
 
-    pub fn parser_statement(parser: &mut Parser)-> Result<Box<Node>, String> {
+    pub fn parser_statement(parser: &mut Parser) -> Result<Box<Node>, String> {
         todo!()
     }
 
