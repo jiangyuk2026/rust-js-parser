@@ -7,7 +7,7 @@ use crate::exp::try_exp::build_try;
 use crate::express::{expect, is_ctrl_word, parse_expression};
 use crate::lex::{Lex, Loc, Token};
 use crate::node::Node;
-use crate::node::Node::{BlockStatement, BreakStatement, ReturnStatement};
+use crate::node::Node::{BlockStatement, BreakStatement, ReturnStatement, ThrowStatement};
 use std::mem::swap;
 
 #[derive(PartialEq, Debug)]
@@ -62,9 +62,8 @@ impl Parser {
         swap(&mut self.loc, &mut self.last_loc);
     }
 
-    pub fn next_with_lf(&mut self) {
-        (self.current, self.loc) = self.lex.next();
-        self.list.push(self.current.clone());
+    pub fn is_same_line(&self) -> bool {
+        self.last_loc.end.line == self.loc.start.line
     }
 
     pub fn parse_statement_list(parser: &mut Parser) -> Result<Vec<Node>, String> {
@@ -102,8 +101,8 @@ impl Parser {
                     ast.push(*build_switch(parser)?);
                 }
                 Token::Return => {
-                    parser.next_with_lf();
-                    if parser.current == Token::LF || parser.current == Token::EOF {
+                    parser.next();
+                    if !parser.is_same_line() || parser.current == Token::EOF {
                         ast.push(ReturnStatement { argument: None })
                     } else if is_ctrl_word(&parser.current, "}")
                         || is_ctrl_word(&parser.current, ";")
@@ -118,6 +117,18 @@ impl Parser {
                 Token::Break => {
                     parser.next();
                     ast.push(BreakStatement { label: None })
+                }
+                Token::Throw => {
+                    parser.next();
+                    if !parser.is_same_line() || parser.current == Token::EOF {
+                        return Err("expression expected".to_string());
+                    }
+                    if is_ctrl_word(&parser.current, "}") || is_ctrl_word(&parser.current, ";") {
+                        return Err("Unexpected token".to_string());
+                    }
+                    ast.push(ThrowStatement {
+                        argument: parse_expression(parser, 0)?,
+                    })
                 }
                 _ => {
                     ast.push(*parse_expression(parser, 0)?);

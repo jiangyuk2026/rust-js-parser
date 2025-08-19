@@ -3,7 +3,10 @@ use crate::exp::arrow_function_exp::build_possible_arrow_function;
 use crate::exp::function_exp::build_function;
 use crate::exp::object_exp::build_object;
 use crate::lex::Token;
-use crate::node::Node::{BooleanLiteral, Identity, NewExpression, SequenceExpression};
+use crate::node::Node::{
+    BooleanLiteral, Identity, NewExpression, NullLiteral, SequenceExpression, TemplateElement,
+    TemplateLiteral, ThisExpression, UnaryExpression,
+};
 use crate::node::{Extra, Node};
 use crate::parser::Parser;
 
@@ -38,23 +41,45 @@ pub fn parse_expression(parser: &mut Parser, min_level: u8) -> Result<Box<Node>,
             _ => return Err("expect control,".to_string()),
         };
     }
+
     if parser.current == Token::Function {
         return Ok(build_function(parser, false)?);
     }
 
     let mut left: Box<Node>;
 
-    if parser.current == Token::True {
+    if parser.current == Token::Typeof {
+        parser.next();
+        left = Box::new(UnaryExpression {
+            argument: parse_expression(parser, 14)?,
+            operator: "typeof".to_string(),
+            prefix: true,
+        })
+    } else if parser.current == Token::True {
         parser.next();
         left = Box::new(BooleanLiteral { value: true });
     } else if parser.current == Token::False {
         parser.next();
         left = Box::new(BooleanLiteral { value: false });
+    } else if parser.current == Token::This {
+        parser.next();
+        left = Box::new(ThisExpression {});
+    } else if parser.current == Token::Null {
+        parser.next();
+        left = Box::new(NullLiteral {});
     } else if parser.current == Token::Undefined {
         parser.next();
         left = Box::new(Identity {
             name: "undefined".to_string(),
         });
+    } else if let Token::TemplateStr(s) = &parser.current {
+        left = Box::new(TemplateLiteral {
+            expressions: vec![],
+            quasis: vec![TemplateElement {
+                value: s.to_string(),
+            }],
+        });
+        parser.next();
     } else if parser.current == Token::New {
         parser.next();
         let callee = parse_expression(parser, 18)?;
@@ -75,7 +100,7 @@ pub fn parse_expression(parser: &mut Parser, min_level: u8) -> Result<Box<Node>,
         }
         left = Box::new(NewExpression { callee, arguments });
     } else if let Token::Variable(s) = &parser.current {
-        left = Box::new(Node::Identity {
+        left = Box::new(Identity {
             name: s.to_string(),
         });
         parser.next();
@@ -116,6 +141,9 @@ pub fn parse_expression(parser: &mut Parser, min_level: u8) -> Result<Box<Node>,
                 }
                 return Err("syntax error:".to_string());
             }
+            Token::Instanceof => {}
+            Token::In => {}
+            Token::Void => {}
             _ => break,
         }
         let l = get_level(&parser.current)?;
@@ -143,7 +171,7 @@ pub fn parse_expression(parser: &mut Parser, min_level: u8) -> Result<Box<Node>,
                         })
                     }
                 }
-                "=" => {
+                "=" | "+=" | "-=" | "*=" | "/=" | "%=" | ">>=" | "<<=" | "|=" | "&=" => {
                     parser.next();
                     let right = parse_expression(parser, l)?;
                     left = Box::new(Node::AssignmentExpression {
@@ -183,6 +211,15 @@ pub fn parse_expression(parser: &mut Parser, min_level: u8) -> Result<Box<Node>,
                         left,
                         right,
                         extra: Extra::Parenthesized,
+                    })
+                }
+                "&&" | "||" => {
+                    parser.next();
+                    let right = parse_expression(parser, l + 1)?;
+                    left = Box::new(Node::LogicalExpression {
+                        operator: s.to_string(),
+                        left,
+                        right,
                     })
                 }
                 "++" | "--" => {
@@ -234,7 +271,7 @@ pub fn parse_expression(parser: &mut Parser, min_level: u8) -> Result<Box<Node>,
                 }
                 "[" => {
                     parser.next();
-                    let right = parse_expression(parser, l)?;
+                    let right = parse_expression(parser, 0)?;
                     expect(&parser.current, "]")?;
                     parser.next();
                     left = Box::new(Node::MemberExpression {
@@ -247,6 +284,16 @@ pub fn parse_expression(parser: &mut Parser, min_level: u8) -> Result<Box<Node>,
                     return Err(format!("unsupported operator {:?}", &operator));
                 }
             },
+            Token::Instanceof => {
+                parser.next();
+                let right = parse_expression(parser, l + 1)?;
+                left = Box::new(Node::BinaryExpression {
+                    operator: "instanceof".to_string(),
+                    left,
+                    right,
+                    extra: Extra::Parenthesized,
+                })
+            }
             _ => {
                 break;
             }
@@ -266,9 +313,9 @@ pub fn box_(node: Node) -> Box<Node> {
 fn get_level(token: &Token) -> Result<u8, String> {
     let d = match token {
         Token::Control(s) => match s.as_str() {
-            "new" | "." | "[" | "(" | "?." | "{" => 17,
+            "." | "[" | "(" | "?." | "{" => 17,
             "++" | "--" => 15,
-            "!" | "~" | "typeof" | "await" | "delete" => 14,
+            "!" | "~" => 14,
             "**" => 13,
             "*" | "/" | "%" => 12,
             "+" | "-" => 11,
@@ -280,10 +327,17 @@ fn get_level(token: &Token) -> Result<u8, String> {
             "|" => 5,
             "&&" => 4,
             "??" | "||" => 3,
-            "?" | "=" | "+=" | "-=" | "*=" | "/=" | "%=" | "=>" => 2,
+            "?" | "=" | "+=" | "-=" | "*=" | "/=" | "%=" | ">>=" | "<<=" | "|=" | "&=" | "=>" => 2,
             "," => 1,
             _ => return Err(format!("get level err {token}")),
         },
+        Token::Instanceof => 9,
+        Token::In => 9,
+        Token::Typeof => 14,
+        Token::Void => 14,
+        Token::Delete => 14,
+        Token::Await => 14,
+        Token::New => 17,
         _ => return Err(format!("get level err {token}")),
     };
     Ok(d)

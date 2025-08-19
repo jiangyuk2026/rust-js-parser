@@ -21,9 +21,17 @@ pub enum Node {
     BooleanLiteral {
         value: bool,
     },
+    NullLiteral {},
     RegExpLiteral {
         pattern: String,
         flags: String,
+    },
+    TemplateLiteral {
+        expressions: Vec<Node>,
+        quasis: Vec<Node>,
+    },
+    TemplateElement {
+        value: String,
     },
     ArrayExpression {
         elements: Vec<Node>,
@@ -63,6 +71,11 @@ pub enum Node {
         operator: String,
         right: Box<Node>,
         extra: Extra,
+    },
+    LogicalExpression {
+        left: Box<Node>,
+        operator: String,
+        right: Box<Node>,
     },
     UnaryExpression {
         operator: String,
@@ -112,6 +125,7 @@ pub enum Node {
         params: Vec<Node>,
         body: Box<Node>,
     },
+    ThisExpression {},
     AssignmentPattern {
         left: Box<Node>,
         right: Box<Node>,
@@ -150,5 +164,8 @@ pub enum Node {
     },
     BreakStatement {
         label: Option<Box<Node>>,
+    },
+    ThrowStatement {
+        argument: Box<Node>,
     },
 }

@@ -29,6 +29,7 @@ pub enum Token {
     Async,
     Function,
     With,
+    Delete,
     If,
     Else,
     Switch,
@@ -59,6 +60,7 @@ pub enum Token {
     String(String),
     Control(String),
     Comment(String),
+    TemplateStr(String),
     EOF,
 }
 
@@ -84,6 +86,7 @@ impl Display for Token {
             Token::Async => write!(f, "Async"),
             Token::Function => write!(f, "Function"),
             Token::With => write!(f, "With"),
+            Token::Delete => write!(f, "Delete"),
             Token::If => write!(f, "If"),
             Token::Switch => write!(f, "Switch"),
             Token::Case => write!(f, "Case"),
@@ -160,7 +163,7 @@ impl Lex {
                         result = self.read_string();
                         break;
                     }
-                    '=' | '+' | '-' | '*' | '/' | '%' | '>' | '<' | '|' | '?' | ':' | '!' => {
+                    '=' | '+' | '-' | '*' | '/' | '%' | '>' | '<' | '|' | '?' | ':' | '!' | '&' => {
                         result = self.read_operation();
                         break;
                     }
@@ -176,6 +179,10 @@ impl Lex {
                     }
                     '0'..='9' => {
                         result = self.read_digit();
+                        break;
+                    }
+                    '`' => {
+                        result = self.read_template_str();
                         break;
                     }
                     _ => panic!("Unrecognized character {c}"),
@@ -219,6 +226,7 @@ impl Lex {
             "async" => Token::Async,
             "function" => Token::Function,
             "with" => Token::With,
+            "delete" => Token::Delete,
             "if" => Token::If,
             "switch" => Token::Switch,
             "case" => Token::Case,
@@ -327,7 +335,7 @@ impl Lex {
             let c = self.input.chars().nth(self.pos);
             match c {
                 Some(c) => match c {
-                    '=' | '+' | '-' | '*' | '/' | '%' | '>' | '<' | '|' | '?' | ':' => {
+                    '=' | '+' | '-' | '*' | '/' | '%' | '>' | '<' | '|' | '?' | ':' | '&' => {
                         word.push(c);
                     }
                     _ => {
@@ -419,6 +427,28 @@ impl Lex {
             panic!("digit syntax error");
         }
         Token::Digit(word)
+    }
+    fn read_template_str(&mut self) -> Token {
+        let mut word = String::new();
+        loop {
+            self.pos += 1;
+            self.column += 1;
+            let c = self.input.chars().nth(self.pos);
+            match c {
+                Some(c) => match c {
+                    '`' => {
+                        self.pos += 1;
+                        self.column += 1;
+                        break;
+                    }
+                    _ => {
+                        word.push(c);
+                    }
+                },
+                None => panic!("template string error"),
+            }
+        }
+        Token::TemplateStr(word)
     }
 }
 

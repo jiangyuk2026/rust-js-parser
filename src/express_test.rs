@@ -63,6 +63,15 @@ mod test {
     }
 
     #[test]
+    fn test_typeof_typeof() -> Result<(), String> {
+        let mut parser = Parser::new("typeof typeof a".to_string());
+        let ast = parser.parse()?;
+        println!("{:#?}", ast);
+        assert_eq!(parser.current, Token::EOF);
+        Ok(())
+    }
+
+    #[test]
     fn test_question() {
         let mut parser = Parser::new("a = b ? c ? d : e : f".to_string());
         let ast = parser.parse();
@@ -141,7 +150,8 @@ mod test {
     }
     #[test]
     fn member_call_mix() {
-        let mut parser = Parser::new("recast.print(node).code.substring(0, limit).replace('', '')".to_string());
+        let mut parser =
+            Parser::new("recast.print(node).code.substring(0, limit).replace('', '')".to_string());
         let ast = parser.parse();
         println!("{:#?}", ast);
         assert!(ast.is_ok());
