@@ -127,6 +127,7 @@ pub struct Lex {
     pos: usize,
     line: usize,
     column: usize,
+    pub regex_allowed: bool,
 }
 
 impl Lex {
@@ -136,6 +137,7 @@ impl Lex {
             pos: 0,
             line: 1,
             column: 1,
+            regex_allowed: true,
         }
     }
 
@@ -181,7 +183,11 @@ impl Lex {
                         result = self.read_string()?;
                         break;
                     }
-                    '=' | '+' | '-' | '*' | '/' | '%' | '>' | '<' | '|' | '?' | ':' | '!' | '&' => {
+                    '/' => {
+                        result = self.read_divide_regex_comment()?;
+                        break;
+                    }
+                    '=' | '+' | '-' | '*' | '%' | '>' | '<' | '|' | '?' | ':' | '!' | '&' => {
                         result = self.read_operation()?;
                         break;
                     }
@@ -344,6 +350,38 @@ impl Lex {
         Ok(Token::String(word))
     }
 
+    fn read_divide_regex_comment(&mut self) -> Result<Token, String> {
+        let c = self.input.chars().nth(self.pos).unwrap();
+        let mut word = String::new();
+        word.push(c);
+        loop {
+            self.pos += 1;
+            self.column += 1;
+            let d = self.input.chars().nth(self.pos);
+            match d {
+                Some(d) => match d {
+                    '/' => {
+                        return self.read_comment();
+                    }
+                    '=' => {
+                        if self.regex_allowed {
+                            return self.read_regex();
+                        }
+                        word.push(d);
+                    }
+                    _ => {
+                        if self.regex_allowed {
+                            return self.read_regex();
+                        }
+                        break;
+                    }
+                },
+                None => break,
+            }
+        }
+        Ok(Token::Control(word))
+    }
+
     fn read_operation(&mut self) -> Result<Token, String> {
         let c = self.input.chars().nth(self.pos).unwrap();
         let mut word = String::new();
@@ -351,22 +389,13 @@ impl Lex {
         loop {
             self.pos += 1;
             self.column += 1;
-            if word == "//" {
-                return self.read_comment();
-            }
             let d = self.input.chars().nth(self.pos);
             match d {
                 Some(d) => match d {
                     '=' | '+' | '-' | '*' | '/' | '%' | '>' | '<' | '|' | '?' | ':' | '&' => {
-                        if word == "/" && d != '/' {
-                            return self.read_regex();
-                        }
                         word.push(d);
                     }
                     _ => {
-                        if word == "/" {
-                            return self.read_regex();
-                        }
                         break;
                     }
                 },
@@ -442,6 +471,8 @@ impl Lex {
     fn read_comment(&mut self) -> Result<Token, String> {
         let mut word = String::new();
         loop {
+            self.pos += 1;
+            self.column += 1;
             let c = self.input.chars().nth(self.pos);
             match c {
                 Some(c) => match c {
@@ -456,8 +487,6 @@ impl Lex {
                     break;
                 }
             }
-            self.pos += 1;
-            self.column += 1;
         }
         Ok(Comment(word))
     }

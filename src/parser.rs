@@ -23,6 +23,7 @@ pub struct Parser {
     pub list: Vec<Token>,
     pub loc: Loc,
     pub last_loc: Loc,
+    regex_allowed: bool,
     lex: Lex,
 }
 
@@ -44,6 +45,7 @@ impl Parser {
             last_loc: loc,
             is_arrow_function: IsArrowFunction::Maybe,
             list: vec![current],
+            regex_allowed: true,
             lex,
         };
 
@@ -51,9 +53,22 @@ impl Parser {
     }
 
     pub fn next(&mut self) -> Result<(), String> {
-        (self.current, self.last_loc) = self.lex.next()?;
-        self.list.push(self.current.clone());
-        swap(&mut self.loc, &mut self.last_loc);
+        self.lex.regex_allowed = self.regex_allowed;
+        loop {
+            (self.current, self.last_loc) = self.lex.next()?;
+            self.list.push(self.current.clone());
+            swap(&mut self.loc, &mut self.last_loc);
+            if !matches!(self.current, Token::Comment(_)) {
+                break;
+            }
+        }
+        if let Token::Variable(_) = self.current {
+            self.regex_allowed = false;
+        } else if let Token::Digit(_) = self.current {
+            self.regex_allowed = false;
+        } else {
+            self.regex_allowed = true;
+        }
         Ok(())
     }
 
@@ -69,7 +84,7 @@ impl Parser {
                 Token::LF => parser.next()?,
                 Token::Control(s) => match s.as_str() {
                     ";" => {
-                        parser.next();
+                        parser.next()?;
                     }
                     "}" => break,
                     _ => ast.push(*parse_expression(parser, 0)?),

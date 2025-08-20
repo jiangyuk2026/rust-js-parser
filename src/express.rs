@@ -135,16 +135,16 @@ pub fn parse_expression(parser: &mut Parser, min_level: u8) -> Result<Box<Node>,
             },
             Token::EOF => break,
             Token::Variable(_) => {
-                if parser.last_loc.end.line != parser.loc.start.line {
-                    break;
+                if parser.is_same_line() {
+                    return Err("syntax error:".to_string());
                 }
-                return Err("syntax error:".to_string());
+                break;
             }
             Token::Digit(_) => {
-                if parser.last_loc.end.line != parser.loc.start.line {
-                    break;
+                if parser.is_same_line() {
+                    return Err("syntax error:".to_string());
                 }
-                return Err("syntax error:".to_string());
+                break;
             }
             Token::Instanceof => {}
             Token::In => {}
