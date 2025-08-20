@@ -51,14 +51,8 @@ impl Parser {
     }
 
     pub fn next(&mut self) {
-        loop {
-            (self.current, self.last_loc) = self.lex.next();
-            self.list.push(self.current.clone());
-            if let Token::Comment { .. } = self.current {
-            } else if self.current != Token::LF || self.current == Token::EOF {
-                break;
-            }
-        }
+        (self.current, self.last_loc) = self.lex.next();
+        self.list.push(self.current.clone());
         swap(&mut self.loc, &mut self.last_loc);
     }
 

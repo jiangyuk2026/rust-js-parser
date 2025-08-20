@@ -43,6 +43,11 @@ pub enum Node {
         key: Box<Node>,
         value: Box<Node>,
     },
+    ObjectMethod {
+        key: Box<Node>,
+        params: Vec<Node>,
+        body: Box<Node>,
+    },
     ObjectPattern {
         properties: Vec<Node>,
     },

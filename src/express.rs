@@ -4,8 +4,8 @@ use crate::exp::function_exp::build_function;
 use crate::exp::object_exp::build_object;
 use crate::lex::Token;
 use crate::node::Node::{
-    BooleanLiteral, Identity, NewExpression, NullLiteral, SequenceExpression, TemplateElement,
-    TemplateLiteral, ThisExpression, UnaryExpression,
+    BooleanLiteral, Identity, NewExpression, NullLiteral, RegExpLiteral, SequenceExpression,
+    TemplateElement, TemplateLiteral, ThisExpression, UnaryExpression,
 };
 use crate::node::{Extra, Node};
 use crate::parser::Parser;
@@ -72,6 +72,12 @@ pub fn parse_expression(parser: &mut Parser, min_level: u8) -> Result<Box<Node>,
         left = Box::new(Identity {
             name: "undefined".to_string(),
         });
+    } else if let Token::Regex(pattern, flags) = &parser.current {
+        left = Box::new(RegExpLiteral {
+            pattern: pattern.to_string(),
+            flags: flags.to_string(),
+        });
+        parser.next();
     } else if let Token::TemplateStr(s) = &parser.current {
         left = Box::new(TemplateLiteral {
             expressions: vec![],

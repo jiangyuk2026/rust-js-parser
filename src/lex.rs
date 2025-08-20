@@ -61,6 +61,7 @@ pub enum Token {
     Control(String),
     Comment(String),
     TemplateStr(String),
+    Regex(String, String),
     EOF,
 }
 
@@ -142,6 +143,30 @@ impl Lex {
         if self.pos > str.len() {
             panic!("end of source");
         }
+        loop {
+            let c = str.chars().nth(self.pos);
+            match c {
+                Some(c) => match c {
+                    ' ' => {
+                        self.column += 1;
+                    }
+                    '\t' => {
+                        println!("\\t find");
+                        self.column += 1;
+                    }
+                    '\r' => {}
+                    '\n' => {
+                        self.line += 1;
+                        self.column = 1;
+                    }
+                    _ => {
+                        break;
+                    }
+                },
+                None => break,
+            }
+            self.pos += 1;
+        }
         let start = Position {
             line: self.line,
             column: self.column,
@@ -151,14 +176,6 @@ impl Lex {
             let c = str.chars().nth(self.pos);
             match c {
                 Some(c) => match c {
-                    ' ' => {
-                        self.pos += 1;
-                        self.column += 1;
-                    }
-                    '\r' | '\n' => {
-                        result = self.read_newline();
-                        break;
-                    }
                     '"' | '\'' => {
                         result = self.read_string();
                         break;
@@ -332,13 +349,19 @@ impl Lex {
             if word == "//" {
                 return self.read_comment();
             }
-            let c = self.input.chars().nth(self.pos);
-            match c {
-                Some(c) => match c {
+            let d = self.input.chars().nth(self.pos);
+            match d {
+                Some(d) => match d {
                     '=' | '+' | '-' | '*' | '/' | '%' | '>' | '<' | '|' | '?' | ':' | '&' => {
-                        word.push(c);
+                        if word == "/" && d != '/' {
+                            return self.read_regex();
+                        }
+                        word.push(d);
                     }
                     _ => {
+                        if word == "/" {
+                            return self.read_regex();
+                        }
                         break;
                     }
                 },
@@ -347,6 +370,68 @@ impl Lex {
         }
 
         Token::Control(word)
+    }
+
+    fn read_regex(&mut self) -> Token {
+        let mut escaped = false;
+        let mut flags_start = false;
+        let c = self.input.chars().nth(self.pos).unwrap();
+        if c == '/' {
+            panic!("expect regex, but find //")
+        }
+        let mut word = String::new();
+        let mut flags = String::new();
+        word.push(c);
+        loop {
+            self.pos += 1;
+            self.column += 1;
+            let d = self.input.chars().nth(self.pos);
+            match d {
+                Some(d) => match d {
+                    '/' => {
+                        if flags_start {
+                            panic!("expect regex flags, but found /");
+                        }
+                        if escaped {
+                            escaped = false;
+                            word.push(d);
+                        } else {
+                            flags_start = true
+                        }
+                    }
+                    '_' | 'a'..='z' | '0'..='9' => match d {
+                        'i' | 'g' | 'm' | 's' | 'u' | 'y' => {
+                            if flags_start {
+                                if flags.contains(d) {
+                                    panic!("repeated regex flags");
+                                }
+                                flags.push(d);
+                            }
+                        }
+                        _ => {
+                            if flags_start {
+                                panic!("regex expect newline or semicolon");
+                            } else {
+                                word.push(d);
+                            }
+                        }
+                    },
+                    _ => {
+                        if flags_start {
+                            break;
+                        }
+                        word.push(d);
+                    }
+                },
+                None => {
+                    break;
+                }
+            }
+        }
+        if !flags_start {
+            panic!("regex syntax error");
+        }
+        Token::Regex(word, flags)
     }
 
     fn read_comment(&mut self) -> Token {
@@ -502,8 +587,37 @@ mod tests {
         let input = "//abcd\n//dddd";
         let mut lex = Lex::new(input.to_string());
         assert_eq!(lex.next().0, Token::Comment("abcd".to_string()));
-        assert_eq!(lex.next().0, Token::LF);
         assert_eq!(lex.next().0, Token::Comment("dddd".to_string()));
+    }
+
+    #[test]
+    fn test_regex() {
+        let input = "/abc/";
+        let mut lex = Lex::new(input.to_string());
+        assert_eq!(
+            lex.next().0,
+            Token::Regex("abc".to_string(), "".to_string())
+        );
+    }
+
+    #[test]
+    fn test_regex_flags() {
+        let input = "/abc/ig";
+        let mut lex = Lex::new(input.to_string());
+        assert_eq!(
+            lex.next().0,
+            Token::Regex("abc".to_string(), "ig".to_string())
+        );
+    }
+
+    #[test]
+    fn test_regex_escape() {
+        let input = "/abc\\r\\n/ig";
+        let mut lex = Lex::new(input.to_string());
+        assert_eq!(
+            lex.next().0,
+            Token::Regex("abc\\r\\n".to_string(), "ig".to_string())
+        );
     }
 
     #[test]
@@ -511,19 +625,12 @@ mod tests {
         let input = " \n\n\nlet\n\n\n a\n\n\n =\n\n\n 1\n\n\n + \n\n\n2\n\n\n";
         let mut lex = Lex::new(input.to_string());
 
-        assert_eq!(lex.next().0, Token::LF);
         assert_eq!(lex.next().0, Token::Let);
-        assert_eq!(lex.next().0, Token::LF);
         assert_eq!(lex.next().0, Token::Variable("a".to_string()));
-        assert_eq!(lex.next().0, Token::LF);
         assert_eq!(lex.next().0, Token::Control("=".to_string()));
-        assert_eq!(lex.next().0, Token::LF);
         assert_eq!(lex.next().0, Token::Digit("1".to_string()));
-        assert_eq!(lex.next().0, Token::LF);
         assert_eq!(lex.next().0, Token::Control("+".to_string()));
-        assert_eq!(lex.next().0, Token::LF);
         assert_eq!(lex.next().0, Token::Digit("2".to_string()));
-        assert_eq!(lex.next().0, Token::LF);
         assert_eq!(lex.next().0, Token::EOF);
     }
 }

@@ -25,18 +25,7 @@ pub fn build_function(parser: &mut Parser, is_declaration: bool) -> Result<Box<N
     } else {
         id = None;
     }
-
-    expect(&parser.current, "(")?;
-    parser.next();
-
-    if !is_ctrl_word(&parser.current, ")") {
-        params = handle_params(parser)?;
-    } else {
-        params = vec![]
-    }
-
-    expect(&parser.current, ")")?;
-    parser.next();
+    params = handle_function_params(parser)?;
     body = Parser::parse_block(parser)?;
     if is_declaration {
         return ok_box(FunctionDeclaration {
@@ -48,8 +37,11 @@ pub fn build_function(parser: &mut Parser, is_declaration: bool) -> Result<Box<N
     ok_box(FunctionExpression { id, params, body })
 }
 
-fn handle_params(parser: &mut Parser) -> Result<Vec<Node>, String> {
+pub fn handle_function_params(parser: &mut Parser) -> Result<Vec<Node>, String> {
     let mut params: Vec<Node> = vec![];
+
+    expect(&parser.current, "(")?;
+    parser.next();
     loop {
         if is_ctrl_word(&parser.current, ")") {
             break;
@@ -77,9 +69,9 @@ fn handle_params(parser: &mut Parser) -> Result<Vec<Node>, String> {
             params.push(handle_array(parser)?);
         }
     }
-    if !is_ctrl_word(&parser.current, ")") {
-        return Err("function param expect )".to_string());
-    }
+
+    expect(&parser.current, ")")?;
+    parser.next();
     Ok(params)
 }
 

@@ -16,6 +16,7 @@ mod test {
     fn test_array() {
         let mut parser = Parser::new("a = [1,2,3]".to_string());
         let ast = parser.parse();
+        println!("{:?}", ast);
         assert!(ast.is_ok());
         assert_eq!(parser.current, Token::EOF);
     }

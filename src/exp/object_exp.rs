@@ -1,7 +1,10 @@
+use crate::exp::function_exp::handle_function_params;
 use crate::express::{expect, is_ctrl_word, ok_box, parse_expression};
 use crate::lex::Token;
 use crate::node::Node;
-use crate::node::Node::{NumericLiteral, ObjectExpression, ObjectProperty, StringLiteral};
+use crate::node::Node::{
+    NumericLiteral, ObjectExpression, ObjectMethod, ObjectProperty, StringLiteral,
+};
 use crate::parser::Parser;
 
 pub fn build_object(parser: &mut Parser) -> Result<Box<Node>, String> {
@@ -45,16 +48,21 @@ pub fn build_object(parser: &mut Parser) -> Result<Box<Node>, String> {
                 key: Box::new(key.clone()),
                 value: Box::new(key),
             });
-            continue;
-        } else if is_ctrl_word(&parser.current, "}") {
-            continue;
+        } else if is_ctrl_word(&parser.current, "(") {
+            let params = handle_function_params(parser)?;
+            let body = Parser::parse_block(parser)?;
+            properties.push(ObjectMethod {
+                key: Box::new(key),
+                params,
+                body,
+            })
+        } else if is_ctrl_word(&parser.current, ":") {
+            parser.next();
+            properties.push(ObjectProperty {
+                key: Box::new(key),
+                value: parse_expression(parser, 2)?,
+            });
         }
-        expect(&parser.current, ":")?;
-        parser.next();
-        properties.push(ObjectProperty {
-            key: Box::new(key),
-            value: parse_expression(parser, 2)?,
-        });
     }
 
     expect(&parser.current, "}")?;
@@ -87,6 +95,14 @@ mod test_object {
     #[test]
     fn test_object_simple() {
         let mut parser = Parser::new("a = {b,c}".to_string());
+        let ast = parser.parse();
+        println!("{ast:#?}");
+        assert_eq!(parser.current, Token::EOF)
+    }
+
+    #[test]
+    fn test_object_method() {
+        let mut parser = Parser::new("a = {b(c){}}".to_string());
         let ast = parser.parse();
         println!("{ast:#?}");
         assert_eq!(parser.current, Token::EOF)
