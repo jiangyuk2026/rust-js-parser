@@ -10,14 +10,13 @@ use crate::parser::Parser;
 pub fn build_object(parser: &mut Parser) -> Result<Box<Node>, String> {
     let mut properties = vec![];
 
-    expect(&parser.current, "{")?;
-    parser.next();
+    expect(parser, "{")?;
 
     loop {
         if is_ctrl_word(&parser.current, "}") {
             break;
         } else if is_ctrl_word(&parser.current, ",") {
-            parser.next();
+            parser.next()?;
             continue;
         }
         let key: Node;
@@ -42,7 +41,7 @@ pub fn build_object(parser: &mut Parser) -> Result<Box<Node>, String> {
                 return Err("object property type error".to_string());
             }
         }
-        parser.next();
+        parser.next()?;
         if is_ctrl_word(&parser.current, ",") {
             properties.push(ObjectProperty {
                 key: Box::new(key.clone()),
@@ -57,7 +56,7 @@ pub fn build_object(parser: &mut Parser) -> Result<Box<Node>, String> {
                 body,
             })
         } else if is_ctrl_word(&parser.current, ":") {
-            parser.next();
+            parser.next()?;
             properties.push(ObjectProperty {
                 key: Box::new(key),
                 value: parse_expression(parser, 2)?,
@@ -65,9 +64,7 @@ pub fn build_object(parser: &mut Parser) -> Result<Box<Node>, String> {
         }
     }
 
-    expect(&parser.current, "}")?;
-    parser.next();
-
+    expect(parser, "}")?;
     ok_box(ObjectExpression { properties })
 }
 

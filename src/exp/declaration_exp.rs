@@ -6,7 +6,7 @@ use crate::parser::Parser;
 
 pub fn build_let(parser: &mut Parser) -> Result<Box<Node>, String> {
     let kind = expect_keys(&parser.current, &vec![Token::Var, Token::Let, Token::Const])?;
-    parser.next();
+    parser.next()?;
     let mut declarations = vec![];
     declarations.push(*build_declarator(parser)?);
     loop {
@@ -14,11 +14,11 @@ pub fn build_let(parser: &mut Parser) -> Result<Box<Node>, String> {
         match c2 {
             Token::Control(s) => match s.as_str() {
                 "," => {
-                    parser.next();
+                    parser.next()?;
                     declarations.push(*build_declarator(parser)?);
                 }
                 "\r" | "\n" => {
-                    parser.next();
+                    parser.next()?;
                 }
                 _ => break,
             },
@@ -34,7 +34,7 @@ fn build_declarator(parser: &mut Parser) -> Result<Box<Node>, String> {
         let id = Box::new(Node::Identity {
             name: s.to_string(),
         });
-        parser.next();
+        parser.next()?;
         let equal = &parser.current;
         if !is_ctrl_word(equal, "=") {
             return Ok(Box::new(VariableDeclarator {
@@ -44,7 +44,7 @@ fn build_declarator(parser: &mut Parser) -> Result<Box<Node>, String> {
                 }),
             }));
         }
-        parser.next();
+        parser.next()?;
         return Ok(Box::new(VariableDeclarator {
             id,
             init: parse_expression(parser, 1)?,

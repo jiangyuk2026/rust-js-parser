@@ -10,27 +10,22 @@ pub fn build_if(parser: &mut Parser) -> Result<Box<Node>, String> {
     let alternate: Option<Box<Node>>;
 
     expect_keyword(&parser.current, Token::If)?;
-    parser.next();
-
-    expect(&parser.current, "(")?;
-    parser.next();
-
+    parser.next()?;
+    expect(parser, "(")?;
     test = parse_expression(parser, 0)?;
-
-    expect(&parser.current, ")")?;
-    parser.next();
+    expect(parser, ")")?;
 
     if is_ctrl_word(&parser.current, "{") {
         consequent = Parser::parse_block(parser)?;
     } else if is_ctrl_word(&parser.current, ";") {
         consequent = Box::new(EmptyStatement {});
-        parser.next();
+        parser.next()?;
     } else {
         return Err("if syntax error".to_string());
     }
 
     if parser.current == Token::Else {
-        parser.next();
+        parser.next()?;
         if is_ctrl_word(&parser.current, "{") {
             alternate = Some(Parser::parse_block(parser)?);
         } else {

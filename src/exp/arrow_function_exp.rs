@@ -12,14 +12,13 @@ pub fn build_possible_arrow_function(parser: &mut Parser) -> Result<Box<Node>, S
     let mut params = vec![];
     let body: Box<Node>;
 
-    expect(&parser.current, "(")?;
-    parser.next();
+    expect(parser, "(")?;
     parser.is_arrow_function = IsArrowFunction::Maybe;
     loop {
         if is_ctrl_word(&parser.current, ")") {
             break;
         } else if is_ctrl_word(&parser.current, ",") {
-            parser.next();
+            parser.next()?;
             continue;
         } else if is_ctrl_word(&parser.current, "{") {
             params.push(*build_possible_object(parser)?);
@@ -42,9 +41,7 @@ pub fn build_possible_arrow_function(parser: &mut Parser) -> Result<Box<Node>, S
         }
     }
 
-    expect(&parser.current, ")")?;
-    parser.next();
-
+    expect(parser, ")")?;
     if !is_ctrl_word(&parser.current, "=>") {
         return if parser.is_arrow_function == IsArrowFunction::Must {
             Err("syntax error".to_string())
@@ -64,7 +61,7 @@ pub fn build_possible_arrow_function(parser: &mut Parser) -> Result<Box<Node>, S
     if parser.is_arrow_function == IsArrowFunction::Impossible {
         return Err("syntax error".to_string());
     }
-    parser.next();
+    parser.next()?;
     if is_ctrl_word(&parser.current, "{") {
         body = Parser::parse_block(parser)?
     } else {
@@ -77,15 +74,13 @@ pub fn build_possible_arrow_function(parser: &mut Parser) -> Result<Box<Node>, S
 fn build_possible_object(parser: &mut Parser) -> Result<Box<Node>, String> {
     let mut properties = vec![];
 
-    expect(&parser.current, "{")?;
-    parser.next();
-
+    expect(parser, "{")?;
     loop {
         if is_ctrl_word(&parser.current, "}") {
             break;
         }
         if is_ctrl_word(&parser.current, ",") {
-            parser.next();
+            parser.next()?;
             continue;
         }
         let key: Node;
@@ -112,9 +107,9 @@ fn build_possible_object(parser: &mut Parser) -> Result<Box<Node>, String> {
                 return Err("object property type error".to_string());
             }
         }
-        parser.next();
+        parser.next()?;
         if is_ctrl_word(&parser.current, ":") {
-            parser.next();
+            parser.next()?;
             if is_ctrl_word(&parser.current, "{") {
                 properties.push(ObjectProperty {
                     key: Box::new(key),
@@ -134,7 +129,7 @@ fn build_possible_object(parser: &mut Parser) -> Result<Box<Node>, String> {
             }
         } else if is_ctrl_word(&parser.current, "=") {
             parser.is_arrow_function = IsArrowFunction::Must;
-            parser.next();
+            parser.next()?;
             let default_value = parse_expression(parser, 2)?;
             properties.push(AssignmentPattern {
                 left: Box::new(key),
@@ -143,19 +138,18 @@ fn build_possible_object(parser: &mut Parser) -> Result<Box<Node>, String> {
         }
     }
 
-    expect(&parser.current, "}")?;
-    parser.next();
+    expect(parser, "}")?;
     Ok(Box::new(ObjectExpression { properties }))
 }
 
 fn build_possible_array(parser: &mut Parser) -> Result<Box<Node>, String> {
     let mut elements: Vec<Node> = vec![];
-    parser.next();
+    parser.next()?;
     loop {
         if is_ctrl_word(&parser.current, "]") {
             break;
         } else if is_ctrl_word(&parser.current, ",") {
-            parser.next();
+            parser.next()?;
             continue;
         } else if is_ctrl_word(&parser.current, "{") {
             elements.push(*build_possible_object(parser)?)
@@ -165,8 +159,7 @@ fn build_possible_array(parser: &mut Parser) -> Result<Box<Node>, String> {
             elements.push(*parse_expression(parser, 2)?)
         }
     }
-    expect(&parser.current, "]")?;
-    parser.next();
+    expect(parser, "]")?;
     Ok(Box::new(ArrayExpression { elements }))
 }
 

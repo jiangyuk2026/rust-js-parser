@@ -22,7 +22,7 @@ pub fn build_try(parser: &mut Parser) -> Result<Box<Node>, String> {
             parser.next()?;
             if is_ctrl_word(&parser.current, ")") {
                 param = None;
-                parser.next();
+                parser.next()?;
             } else if is_ctrl_word(&parser.current, "{") {
                 return Err("catch({}) unsupported now".to_string());
             } else if let Token::Variable(s) = &parser.current {
@@ -31,7 +31,7 @@ pub fn build_try(parser: &mut Parser) -> Result<Box<Node>, String> {
                 }));
                 parser.next()?;
                 if is_ctrl_word(&parser.current, ")") {
-                    parser.next();
+                    parser.next()?;
                 } else if is_ctrl_word(&parser.current, ",") {
                     return Err("catch support only one param".to_string());
                 }

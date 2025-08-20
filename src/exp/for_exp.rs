@@ -11,9 +11,8 @@ pub fn build_for(parser: &mut Parser) -> Result<Box<Node>, String> {
     let update: Box<Node>;
     let body: Box<Node>;
     expect_keyword(&parser.current, Token::For)?;
-    parser.next();
-    expect(&parser.current, "(")?;
-    parser.next();
+    parser.next()?;
+    expect(parser, "(")?;
     if parser.current == Token::Let {
         init = build_let(parser)?;
     } else if is_ctrl_word(&parser.current, ";") {
@@ -22,29 +21,26 @@ pub fn build_for(parser: &mut Parser) -> Result<Box<Node>, String> {
         init = parse_expression(parser, 0)?;
     }
 
-    expect(&parser.current, ";")?;
-    parser.next();
+    expect(parser, ";")?;
     if is_ctrl_word(&parser.current, ";") {
         test = Box::new(EmptyStatement {});
     } else {
         test = parse_expression(parser, 0)?;
     }
 
-    expect(&parser.current, ";")?;
-    parser.next();
+    expect(parser, ";")?;
     if is_ctrl_word(&parser.current, ")") {
         update = Box::new(EmptyStatement {});
     } else {
         update = parse_expression(parser, 0)?;
     }
 
-    expect(&parser.current, ")")?;
-    parser.next();
+    expect(parser, ")")?;
     if is_ctrl_word(&parser.current, "{") {
         body = Parser::parse_block(parser)?;
     } else if is_ctrl_word(&parser.current, ";") {
         body = Box::new(EmptyStatement {});
-        parser.next();
+        parser.next()?;
     } else {
         return Err("for body error".to_string());
     }

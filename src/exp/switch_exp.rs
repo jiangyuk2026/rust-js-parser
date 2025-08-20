@@ -10,17 +10,10 @@ pub fn build_switch(parser: &mut Parser) -> Result<Box<Node>, String> {
 
     expect_keyword(&parser.current, Token::Switch)?;
     parser.next()?;
-
-    expect(&parser.current, "(")?;
-    parser.next()?;
-
+    expect(parser, "(")?;
     discriminant = parse_expression(parser, 0)?;
-
-    expect(&parser.current, ")")?;
-    parser.next()?;
-
-    expect(&parser.current, "{")?;
-    parser.next()?;
+    expect(parser, ")")?;
+    expect(parser, "{")?;
 
     loop {
         if parser.current == Token::Case || parser.current == Token::Default {
@@ -34,9 +27,7 @@ pub fn build_switch(parser: &mut Parser) -> Result<Box<Node>, String> {
                 test = None;
                 parser.next()?;
             }
-            expect(&parser.current, ":")?;
-            parser.next()?;
-
+            expect(parser, ":")?;
             if is_ctrl_word(&parser.current, "{") {
                 consequent = vec![*Parser::parse_block(parser)?];
             } else {
@@ -47,10 +38,7 @@ pub fn build_switch(parser: &mut Parser) -> Result<Box<Node>, String> {
             break;
         }
     }
-
-    expect(&parser.current, "}")?;
-    parser.next()?;
-
+    expect(parser, "}")?;
     ok_box(SwitchStatement {
         discriminant,
         cases,

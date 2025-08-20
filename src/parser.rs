@@ -96,7 +96,7 @@ impl Parser {
                     ast.push(*build_switch(parser)?);
                 }
                 Token::Return => {
-                    parser.next();
+                    parser.next()?;
                     if !parser.is_same_line() || parser.current == Token::EOF {
                         ast.push(ReturnStatement { argument: None })
                     } else if is_ctrl_word(&parser.current, "}")
@@ -110,11 +110,11 @@ impl Parser {
                     }
                 }
                 Token::Break => {
-                    parser.next();
+                    parser.next()?;
                     ast.push(BreakStatement { label: None })
                 }
                 Token::Throw => {
-                    parser.next();
+                    parser.next()?;
                     if !parser.is_same_line() || parser.current == Token::EOF {
                         return Err("expression expected".to_string());
                     }
@@ -133,21 +133,16 @@ impl Parser {
         Ok(ast)
     }
 
-    pub fn parser_statement(parser: &mut Parser) -> Result<Box<Node>, String> {
-        todo!()
-    }
-
     pub fn parse_block(parser: &mut Parser) -> Result<Box<Node>, String> {
         let consequent: Box<Node>;
         if !is_ctrl_word(&parser.current, "{") {
             return Err("handle_block expect {".to_string());
         }
-        parser.next();
+        parser.next()?;
         consequent = Box::new(BlockStatement {
             body: Parser::parse_statement_list(parser)?,
         });
-        expect(&parser.current, "}")?;
-        parser.next();
+        expect(parser, "}")?;
         Ok(consequent)
     }
 

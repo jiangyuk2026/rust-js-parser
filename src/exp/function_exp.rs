@@ -13,13 +13,13 @@ pub fn build_function(parser: &mut Parser, is_declaration: bool) -> Result<Box<N
     let body: Box<Node>;
 
     expect_keyword(&parser.current, Token::Function)?;
-    parser.next();
+    parser.next()?;
 
     if let Token::Variable(s) = &parser.current {
         id = Some(Box::new(Identity {
             name: s.to_string(),
         }));
-        parser.next();
+        parser.next()?;
     } else if is_declaration {
         return Err("Expected function name".to_string());
     } else {
@@ -40,21 +40,20 @@ pub fn build_function(parser: &mut Parser, is_declaration: bool) -> Result<Box<N
 pub fn handle_function_params(parser: &mut Parser) -> Result<Vec<Node>, String> {
     let mut params: Vec<Node> = vec![];
 
-    expect(&parser.current, "(")?;
-    parser.next();
+    expect(parser, "(")?;
     loop {
         if is_ctrl_word(&parser.current, ")") {
             break;
         } else if is_ctrl_word(&parser.current, ",") {
-            parser.next();
+            parser.next()?;
             continue;
         } else if let Token::Variable(s) = &parser.current {
             let param = Identity {
                 name: s.to_string(),
             };
-            parser.next();
+            parser.next()?;
             if is_ctrl_word(&parser.current, "=") {
-                parser.next();
+                parser.next()?;
                 let default_value = parse_expression(parser, 2)?;
                 params.push(AssignmentPattern {
                     left: Box::new(param),
@@ -70,8 +69,7 @@ pub fn handle_function_params(parser: &mut Parser) -> Result<Vec<Node>, String> 
         }
     }
 
-    expect(&parser.current, ")")?;
-    parser.next();
+    expect(parser, ")")?;
     Ok(params)
 }
 
@@ -79,16 +77,16 @@ fn handle_object(parser: &mut Parser) -> Result<Node, String> {
     if !is_ctrl_word(&parser.current, "{") {
         return Err("function handle_object expect {".to_string());
     }
-    parser.next();
+    parser.next()?;
     let mut properties = vec![];
     loop {
         if is_ctrl_word(&parser.current, "}") {
             break;
         } else if let Token::Variable(s) = &parser.current {
             let name = s.to_string();
-            parser.next();
+            parser.next()?;
             if is_ctrl_word(&parser.current, ":") {
-                parser.next();
+                parser.next()?;
                 if is_ctrl_word(&parser.current, "{") {
                     let right = handle_object(parser)?;
                     properties.push(ObjectProperty {
@@ -108,7 +106,7 @@ fn handle_object(parser: &mut Parser) -> Result<Node, String> {
                     return Err("handle_object expect { or [ after :".to_string());
                 }
             } else if is_ctrl_word(&parser.current, "=") {
-                parser.next();
+                parser.next()?;
                 let right = parse_expression(parser, 2)?;
                 properties.push(ObjectProperty {
                     key: Box::new(Identity {
@@ -122,7 +120,7 @@ fn handle_object(parser: &mut Parser) -> Result<Node, String> {
                     }),
                 })
             } else if is_ctrl_word(&parser.current, ",") {
-                parser.next();
+                parser.next()?;
                 properties.push(ObjectProperty {
                     key: Box::new(Identity {
                         name: name.to_string(),
@@ -141,7 +139,7 @@ fn handle_object(parser: &mut Parser) -> Result<Node, String> {
     if !is_ctrl_word(&parser.current, "}") {
         return Err("function param expect }".to_string());
     }
-    parser.next();
+    parser.next()?;
     Ok(ObjectPattern { properties })
 }
 
@@ -150,19 +148,19 @@ fn handle_array(parser: &mut Parser) -> Result<Node, String> {
     if !is_ctrl_word(&parser.current, "[") {
         return Err("function handle_array expect [".to_string());
     }
-    parser.next();
+    parser.next()?;
     loop {
         if is_ctrl_word(&parser.current, "]") {
             break;
         } else if is_ctrl_word(&parser.current, ",") {
-            parser.next();
+            parser.next()?;
         } else if let Token::Variable(s) = &parser.current {
             let name = Identity {
                 name: s.to_string(),
             };
-            parser.next();
+            parser.next()?;
             if is_ctrl_word(&parser.current, "=") {
-                parser.next();
+                parser.next()?;
                 elements.push(AssignmentPattern {
                     left: Box::new(name),
                     right: parse_expression(parser, 2)?,
@@ -181,7 +179,7 @@ fn handle_array(parser: &mut Parser) -> Result<Node, String> {
     if !is_ctrl_word(&parser.current, "]") {
         return Err("function handle_array expect ]".to_string());
     }
-    parser.next();
+    parser.next()?;
     Ok(ArrayPattern { elements })
 }
 

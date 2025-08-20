@@ -6,23 +6,18 @@ use crate::parser::Parser;
 pub fn build_array(parser: &mut Parser) -> Result<Box<Node>, String> {
     let mut elements = vec![];
 
-    expect(&parser.current, "[")?;
-    parser.next();
-
+    expect(parser, "[")?;
     loop {
         if is_ctrl_word(&parser.current, "]") {
             break;
         } else if is_ctrl_word(&parser.current, ",") {
-            parser.next();
+            parser.next()?;
             continue;
         }
         let item = parse_expression(parser, 2)?;
         elements.push(*item);
     }
-
-    expect(&parser.current, "]")?;
-    parser.next();
-
+    expect(parser, "]")?;
     ok_box(ArrayExpression { elements })
 }
 
