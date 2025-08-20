@@ -27,12 +27,12 @@ pub struct Parser {
 }
 
 impl Parser {
-    pub fn new(input: String) -> Parser {
+    pub fn new(input: String) -> Result<Parser, String> {
         let mut lex = Lex::new(input.to_string());
         let mut current;
         let mut loc;
         loop {
-            (current, loc) = lex.next();
+            (current, loc) = lex.next()?;
             if current != Token::LF || current == Token::EOF {
                 break;
             }
@@ -47,13 +47,14 @@ impl Parser {
             lex,
         };
 
-        parser
+        Ok(parser)
     }
 
-    pub fn next(&mut self) {
-        (self.current, self.last_loc) = self.lex.next();
+    pub fn next(&mut self) -> Result<(), String> {
+        (self.current, self.last_loc) = self.lex.next()?;
         self.list.push(self.current.clone());
         swap(&mut self.loc, &mut self.last_loc);
+        Ok(())
     }
 
     pub fn is_same_line(&self) -> bool {
@@ -65,7 +66,7 @@ impl Parser {
         loop {
             match &parser.current {
                 Token::EOF => break,
-                Token::LF => parser.next(),
+                Token::LF => parser.next()?,
                 Token::Control(s) => match s.as_str() {
                     ";" => {
                         parser.next();
@@ -162,16 +163,16 @@ mod parser_test {
 
     #[test]
     fn test1() {
-        let mut parser = Parser::new(" \n let \n a \n = \n b\n ;".to_string());
+        let mut parser = Parser::new(" \n let \n a \n = \n b\n ;".to_string()).unwrap();
 
         assert_eq!(Token::Let, parser.current);
-        parser.next();
+        parser.next().unwrap();
         assert_eq!(Token::Variable("a".to_string()), parser.current);
     }
 
     #[test]
     fn test_return() {
-        let mut parser = Parser::new("return 1+2;".to_string());
+        let mut parser = Parser::new("return 1+2;".to_string()).unwrap();
         let ast = parser.parse();
         if let Err(e) = ast {
             eprintln!("e: {:?}", e)

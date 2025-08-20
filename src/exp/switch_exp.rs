@@ -9,18 +9,18 @@ pub fn build_switch(parser: &mut Parser) -> Result<Box<Node>, String> {
     let mut cases: Vec<Node> = vec![];
 
     expect_keyword(&parser.current, Token::Switch)?;
-    parser.next();
+    parser.next()?;
 
     expect(&parser.current, "(")?;
-    parser.next();
+    parser.next()?;
 
     discriminant = parse_expression(parser, 0)?;
 
     expect(&parser.current, ")")?;
-    parser.next();
+    parser.next()?;
 
     expect(&parser.current, "{")?;
-    parser.next();
+    parser.next()?;
 
     loop {
         if parser.current == Token::Case || parser.current == Token::Default {
@@ -28,14 +28,14 @@ pub fn build_switch(parser: &mut Parser) -> Result<Box<Node>, String> {
             let mut consequent: Vec<Node>;
 
             if parser.current == Token::Case {
-                parser.next();
+                parser.next()?;
                 test = Some(parse_expression(parser, 0)?);
             } else {
                 test = None;
-                parser.next();
+                parser.next()?;
             }
             expect(&parser.current, ":")?;
-            parser.next();
+            parser.next()?;
 
             if is_ctrl_word(&parser.current, "{") {
                 consequent = vec![*Parser::parse_block(parser)?];
@@ -49,7 +49,7 @@ pub fn build_switch(parser: &mut Parser) -> Result<Box<Node>, String> {
     }
 
     expect(&parser.current, "}")?;
-    parser.next();
+    parser.next()?;
 
     ok_box(SwitchStatement {
         discriminant,
@@ -64,7 +64,7 @@ mod test_switch_statement {
 
     #[test]
     fn test_switch() {
-        let mut parser = Parser::new("switch (a) {}".to_string());
+        let mut parser = Parser::new("switch (a) {}".to_string()).unwrap();
         let ast = parser.parse();
         println!("{ast:#?}");
         assert_eq!(parser.current, Token::EOF)
@@ -77,7 +77,7 @@ mod test_switch_statement {
             case 1:
         }
         "#;
-        let mut parser = Parser::new(str.to_string());
+        let mut parser = Parser::new(str.to_string()).unwrap();
         let ast = parser.parse();
         println!("{ast:#?}");
         assert_eq!(parser.current, Token::EOF)
@@ -93,7 +93,7 @@ mod test_switch_statement {
             default: {
             }
         }"#;
-        let mut parser = Parser::new(str.to_string());
+        let mut parser = Parser::new(str.to_string()).unwrap();
         let ast = parser.parse();
         println!("{ast:#?}");
         assert_eq!(parser.current, Token::EOF)
@@ -130,7 +130,7 @@ switch (a) {
     }
 }
         "#;
-        let mut parser = Parser::new(str.to_string());
+        let mut parser = Parser::new(str.to_string()).unwrap();
         let ast = parser.parse();
         println!("{:#?}", parser.loc);
         println!("{ast:#?}");

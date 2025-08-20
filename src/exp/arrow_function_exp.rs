@@ -189,7 +189,7 @@ mod test_arrow_function {
 
     #[test]
     fn arrow_function_param() -> Result<(), String> {
-        let mut parser = Parser::new("{a=1}".to_string());
+        let mut parser = Parser::new("{a=1}".to_string())?;
         let r = build_possible_object(&mut parser)?;
         assert_eq!(parser.is_arrow_function, IsArrowFunction::Must);
         println!("{:#?}", r);
@@ -198,7 +198,7 @@ mod test_arrow_function {
 
     #[test]
     fn object() -> Result<(), String> {
-        let mut parser = Parser::new("{a: {b: {c:1}}}".to_string());
+        let mut parser = Parser::new("{a: {b: {c:1}}}".to_string())?;
         let r = build_possible_object(&mut parser)?;
         assert_eq!(parser.is_arrow_function, IsArrowFunction::Impossible);
         println!("{:#?}", r);
@@ -207,7 +207,7 @@ mod test_arrow_function {
 
     #[test]
     fn arrow_function_or_object() -> Result<(), String> {
-        let mut parser = Parser::new("{a: {b: {c=1}}}".to_string());
+        let mut parser = Parser::new("{a: {b: {c=1}}}".to_string())?;
         let r = build_possible_object(&mut parser)?;
         assert_eq!(parser.is_arrow_function, IsArrowFunction::Must);
         println!("{:#?}", r);
@@ -216,7 +216,7 @@ mod test_arrow_function {
 
     #[test]
     fn arrow_function_param_array() -> Result<(), String> {
-        let mut parser = Parser::new("([{},a,b])".to_string());
+        let mut parser = Parser::new("([{},a,b])".to_string())?;
         let r = build_possible_arrow_function(&mut parser)?;
         assert_eq!(parser.is_arrow_function, IsArrowFunction::Maybe);
         println!("{:#?}", r);
@@ -225,7 +225,7 @@ mod test_arrow_function {
 
     #[test]
     fn arrow_function_param_array_object() -> Result<(), String> {
-        let mut parser = Parser::new("[{x: 1},a,b]".to_string());
+        let mut parser = Parser::new("[{x: 1},a,b]".to_string())?;
         let r = build_possible_array(&mut parser)?;
         assert_eq!(parser.is_arrow_function, IsArrowFunction::Impossible);
         println!("{:#?}", r);
@@ -234,7 +234,7 @@ mod test_arrow_function {
 
     #[test]
     fn test_arrow_function_without_brackets() {
-        let mut parser = Parser::new("let a = b => {}".to_string());
+        let mut parser = Parser::new("let a = b => {}".to_string()).unwrap();
         let ast = parser.parse();
         println!("{ast:#?}");
         assert_eq!(parser.current, Token::EOF)
@@ -242,7 +242,7 @@ mod test_arrow_function {
 
     #[test]
     fn test_arrow_function() {
-        let mut parser = Parser::new("let a = (b,c,d) => {}".to_string());
+        let mut parser = Parser::new("let a = (b,c,d) => {}".to_string()).unwrap();
         let ast = parser.parse();
         println!("{ast:#?}");
         assert_eq!(parser.current, Token::EOF)
@@ -250,7 +250,7 @@ mod test_arrow_function {
 
     #[test]
     fn test_arrow_function2() {
-        let mut parser = Parser::new("let a = ([a,b,c]) => {}".to_string());
+        let mut parser = Parser::new("let a = ([a,b,c]) => {}".to_string()).unwrap();
         let ast = parser.parse();
         println!("{ast:#?}");
         assert_eq!(parser.current, Token::EOF)
@@ -258,7 +258,7 @@ mod test_arrow_function {
 
     #[test]
     fn test_arrow_function3() {
-        let mut parser = Parser::new("let a = ({a: {b: {c=1}}}) => {}".to_string());
+        let mut parser = Parser::new("let a = ({a: {b: {c=1}}}) => {}".to_string()).unwrap();
         let ast = parser.parse();
         println!("{ast:#?}");
         assert_eq!(parser.current, Token::EOF)
@@ -266,14 +266,14 @@ mod test_arrow_function {
 
     #[test]
     fn test_arrow_function_error() {
-        let mut parser = Parser::new("let a = ({a: 1}) => {}".to_string());
+        let mut parser = Parser::new("let a = ({a: 1}) => {}".to_string()).unwrap();
         let ast = parser.parse();
         assert!(ast.is_err());
     }
 
     #[test]
     fn test_arrow_function_error2() {
-        let mut parser = Parser::new("let a = ()".to_string());
+        let mut parser = Parser::new("let a = ()".to_string()).unwrap();
         let ast = parser.parse();
         assert!(ast.is_err());
     }

@@ -138,7 +138,8 @@ impl Lex {
             column: 1,
         }
     }
-    pub fn next(&mut self) -> (Token, Loc) {
+
+    pub fn next(&mut self) -> Result<(Token, Loc), String> {
         let str = &self.input;
         if self.pos > str.len() {
             panic!("end of source");
@@ -177,11 +178,11 @@ impl Lex {
             match c {
                 Some(c) => match c {
                     '"' | '\'' => {
-                        result = self.read_string();
+                        result = self.read_string()?;
                         break;
                     }
                     '=' | '+' | '-' | '*' | '/' | '%' | '>' | '<' | '|' | '?' | ':' | '!' | '&' => {
-                        result = self.read_operation();
+                        result = self.read_operation()?;
                         break;
                     }
                     ';' | '(' | ')' | '{' | '}' | '.' | ',' | '[' | ']' => {
@@ -191,18 +192,18 @@ impl Lex {
                         break;
                     }
                     '_' | 'a'..='z' | 'A'..='Z' => {
-                        result = self.read_word();
+                        result = self.read_word()?;
                         break;
                     }
                     '0'..='9' => {
-                        result = self.read_digit();
+                        result = self.read_digit()?;
                         break;
                     }
                     '`' => {
-                        result = self.read_template_str();
+                        result = self.read_template_str()?;
                         break;
                     }
-                    _ => panic!("Unrecognized character {c}"),
+                    _ => return Err("Unrecognized character {c}".to_string()),
                 },
                 None => {
                     result = Token::EOF;
@@ -214,10 +215,10 @@ impl Lex {
             line: self.line,
             column: self.column,
         };
-        (result, Loc { start, end })
+        Ok((result, Loc { start, end }))
     }
 
-    fn read_word(&mut self) -> Token {
+    fn read_word(&mut self) -> Result<Token, String> {
         let c = self.input.chars().nth(self.pos).unwrap();
         let mut word = String::new();
         word.push(c);
@@ -233,7 +234,7 @@ impl Lex {
                 None => break,
             }
         }
-        match word.as_str() {
+        let d = match word.as_str() {
             "var" => Token::Var,
             "let" => Token::Let,
             "const" => Token::Const,
@@ -271,10 +272,11 @@ impl Lex {
             "yield" => Token::Yield,
             "debugger" => Token::Debugger,
             _ => Token::Variable(word),
-        }
+        };
+        Ok(d)
     }
 
-    fn read_string(&mut self) -> Token {
+    fn read_string(&mut self) -> Result<Token, String> {
         let s = self.input.chars().nth(self.pos).unwrap();
         let mut word = String::new();
         let mut escaped = false;
@@ -317,7 +319,10 @@ impl Lex {
                             escaped = false;
                             word.push(c);
                         } else {
-                            panic!("string format error, unsupported \\n, line: {}", self.line)
+                            return Err(format!(
+                                "string format error, unsupported \\n, line: {}",
+                                self.line
+                            ));
                         }
                     }
                     '\\' => {
@@ -336,10 +341,10 @@ impl Lex {
                 None => break,
             }
         }
-        Token::String(word)
+        Ok(Token::String(word))
     }
 
-    fn read_operation(&mut self) -> Token {
+    fn read_operation(&mut self) -> Result<Token, String> {
         let c = self.input.chars().nth(self.pos).unwrap();
         let mut word = String::new();
         word.push(c);
@@ -369,15 +374,15 @@ impl Lex {
             }
         }
 
-        Token::Control(word)
+        Ok(Token::Control(word))
     }
 
-    fn read_regex(&mut self) -> Token {
+    fn read_regex(&mut self) -> Result<Token, String> {
         let mut escaped = false;
         let mut flags_start = false;
         let c = self.input.chars().nth(self.pos).unwrap();
         if c == '/' {
-            panic!("expect regex, but find //")
+            return Err("expect regex, but find //".to_string());
         }
         let mut word = String::new();
         let mut flags = String::new();
@@ -390,7 +395,7 @@ impl Lex {
                 Some(d) => match d {
                     '/' => {
                         if flags_start {
-                            panic!("expect regex flags, but found /");
+                            return Err("expect regex flags, but found /".to_string());
                         }
                         if escaped {
                             escaped = false;
@@ -403,14 +408,14 @@ impl Lex {
                         'i' | 'g' | 'm' | 's' | 'u' | 'y' => {
                             if flags_start {
                                 if flags.contains(d) {
-                                    panic!("repeated regex flags");
+                                    return Err("repeated regex flags".to_string());
                                 }
                                 flags.push(d);
                             }
                         }
                         _ => {
                             if flags_start {
-                                panic!("regex expect newline or semicolon");
+                                return Err("regex expect newline or semicolon".to_string());
                             } else {
                                 word.push(d);
                             }
@@ -431,10 +436,10 @@ impl Lex {
         if !flags_start {
             panic!("regex syntax error");
         }
-        Token::Regex(word, flags)
+        Ok(Token::Regex(word, flags))
     }
 
-    fn read_comment(&mut self) -> Token {
+    fn read_comment(&mut self) -> Result<Token, String> {
         let mut word = String::new();
         loop {
             let c = self.input.chars().nth(self.pos);
@@ -454,32 +459,10 @@ impl Lex {
             self.pos += 1;
             self.column += 1;
         }
-        Comment(word)
+        Ok(Comment(word))
     }
 
-    fn read_newline(&mut self) -> Token {
-        loop {
-            let c = self.input.chars().nth(self.pos);
-            match c {
-                Some(c) => match c {
-                    '\r' | ' ' | '\t' => {
-                        self.column += 1;
-                    }
-                    '\n' => {
-                        self.line += 1;
-                        self.column = 1;
-                    }
-                    _ => break,
-                },
-                _ => break,
-            }
-            self.pos += 1;
-            self.column += 1;
-        }
-        Token::LF
-    }
-
-    fn read_digit(&mut self) -> Token {
+    fn read_digit(&mut self) -> Result<Token, String> {
         let c = self.input.chars().nth(self.pos).unwrap();
         let mut word = String::new();
         let mut exponential = false;
@@ -511,9 +494,10 @@ impl Lex {
         if exponential {
             panic!("digit syntax error");
         }
-        Token::Digit(word)
+        Ok(Token::Digit(word))
     }
-    fn read_template_str(&mut self) -> Token {
+
+    fn read_template_str(&mut self) -> Result<Token, String> {
         let mut word = String::new();
         loop {
             self.pos += 1;
@@ -533,7 +517,7 @@ impl Lex {
                 None => panic!("template string error"),
             }
         }
-        Token::TemplateStr(word)
+        Ok(Token::TemplateStr(word))
     }
 }
 
@@ -548,89 +532,99 @@ mod tests {
     }
 
     #[test]
-    fn test_keyword() {
+    fn test_keyword() -> Result<(), String> {
         let input = "for(let i = 1; i < 10;i++)++";
         let mut lex = Lex::new(input.to_string());
-        assert_eq!(lex.next().0, Token::For);
+        assert_eq!(lex.next()?.0, Token::For);
+        Ok(())
     }
 
     #[test]
-    fn test_digit_exponential() {
+    fn test_digit_exponential() -> Result<(), String> {
         let input = "1e3";
         let mut lex = Lex::new(input.to_string());
-        assert_eq!(lex.next().0, Token::Digit("1e3".to_string()));
+        assert_eq!(lex.next()?.0, Token::Digit("1e3".to_string()));
+        Ok(())
     }
 
     #[test]
-    fn test_string_single() {
+    fn test_string_single() -> Result<(), String> {
         let input = "'abcdefjie'";
         let mut lex = Lex::new(input.to_string());
-        assert_eq!(lex.next().0, Token::String("abcdefjie".to_string()));
+        assert_eq!(lex.next()?.0, Token::String("abcdefjie".to_string()));
+        Ok(())
     }
 
     #[test]
-    fn test_string_single_newline() {
+    fn test_string_single_newline() -> Result<(), String> {
         let input = "'abcdefjie\\nxx'";
         let mut lex = Lex::new(input.to_string());
-        assert_eq!(lex.next().0, Token::String("abcdefjie\nxx".to_string()));
+        assert_eq!(lex.next()?.0, Token::String("abcdefjie\nxx".to_string()));
+        Ok(())
     }
 
     #[test]
-    fn test_string_double() {
+    fn test_string_double() -> Result<(), String> {
         let input = "\"abcde\\\"fjie\"";
         let mut lex = Lex::new(input.to_string());
-        assert_eq!(lex.next().0, Token::String("abcde\"fjie".to_string()));
+        assert_eq!(lex.next()?.0, Token::String("abcde\"fjie".to_string()));
+        Ok(())
     }
 
     #[test]
-    fn test_comment() {
+    fn test_comment() -> Result<(), String> {
         let input = "//abcd\n//dddd";
         let mut lex = Lex::new(input.to_string());
-        assert_eq!(lex.next().0, Token::Comment("abcd".to_string()));
-        assert_eq!(lex.next().0, Token::Comment("dddd".to_string()));
+        assert_eq!(lex.next()?.0, Token::Comment("abcd".to_string()));
+        assert_eq!(lex.next()?.0, Token::Comment("dddd".to_string()));
+        Ok(())
     }
 
     #[test]
-    fn test_regex() {
+    fn test_regex() -> Result<(), String> {
         let input = "/abc/";
         let mut lex = Lex::new(input.to_string());
         assert_eq!(
-            lex.next().0,
+            lex.next()?.0,
             Token::Regex("abc".to_string(), "".to_string())
         );
+        Ok(())
     }
 
     #[test]
-    fn test_regex_flags() {
+    fn test_regex_flags() -> Result<(), String> {
         let input = "/abc/ig";
         let mut lex = Lex::new(input.to_string());
         assert_eq!(
-            lex.next().0,
+            lex.next()?.0,
             Token::Regex("abc".to_string(), "ig".to_string())
         );
+        Ok(())
     }
 
     #[test]
-    fn test_regex_escape() {
+    fn test_regex_escape() -> Result<(), String> {
         let input = "/abc\\r\\n/ig";
         let mut lex = Lex::new(input.to_string());
         assert_eq!(
-            lex.next().0,
+            lex.next()?.0,
             Token::Regex("abc\\r\\n".to_string(), "ig".to_string())
         );
+        Ok(())
     }
 
     #[test]
-    fn test_lex() {
+    fn test_lex() -> Result<(), String> {
         let input = " \n\n\nlet\n\n\n a\n\n\n =\n\n\n 1\n\n\n + \n\n\n2\n\n\n";
         let mut lex = Lex::new(input.to_string());
 
-        assert_eq!(lex.next().0, Token::Let);
-        assert_eq!(lex.next().0, Token::Variable("a".to_string()));
-        assert_eq!(lex.next().0, Token::Control("=".to_string()));
-        assert_eq!(lex.next().0, Token::Digit("1".to_string()));
-        assert_eq!(lex.next().0, Token::Control("+".to_string()));
-        assert_eq!(lex.next().0, Token::Digit("2".to_string()));
-        assert_eq!(lex.next().0, Token::EOF);
+        assert_eq!(lex.next()?.0, Token::Let);
+        assert_eq!(lex.next()?.0, Token::Variable("a".to_string()));
+        assert_eq!(lex.next()?.0, Token::Control("=".to_string()));
+        assert_eq!(lex.next()?.0, Token::Digit("1".to_string()));
+        assert_eq!(lex.next()?.0, Token::Control("+".to_string()));
+        assert_eq!(lex.next()?.0, Token::Digit("2".to_string()));
+        assert_eq!(lex.next()?.0, Token::EOF);
+        Ok(())
     }
 }

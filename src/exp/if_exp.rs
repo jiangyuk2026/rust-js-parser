@@ -53,7 +53,7 @@ mod test_if_statement {
 
     #[test]
     fn test_if() {
-        let mut parser = Parser::new("if (a) {}".to_string());
+        let mut parser = Parser::new("if (a) {}".to_string()).unwrap();
         let ast = parser.parse();
         println!("{ast:#?}");
         assert_eq!(parser.current, Token::EOF)
@@ -62,7 +62,7 @@ mod test_if_statement {
 
     #[test]
     fn test_if_else() {
-        let mut parser = Parser::new("if (a) {} else {let b = 1;}".to_string());
+        let mut parser = Parser::new("if (a) {} else {let b = 1;}".to_string()).unwrap();
         let ast = parser.parse();
         println!("{ast:#?}");
         assert_eq!(parser.current, Token::EOF)

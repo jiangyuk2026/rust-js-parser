@@ -78,7 +78,7 @@ mod test_object {
 
     #[test]
     fn test_empty() {
-        let mut parser = Parser::new("a = {}".to_string());
+        let mut parser = Parser::new("a = {}".to_string()).unwrap();
         let ast = parser.parse();
         println!("{ast:#?}");
         assert_eq!(parser.current, Token::EOF)
@@ -86,7 +86,7 @@ mod test_object {
 
     #[test]
     fn test_object() {
-        let mut parser = Parser::new("a = {b: 1,c:2}".to_string());
+        let mut parser = Parser::new("a = {b: 1,c:2}".to_string()).unwrap();
         let ast = parser.parse();
         println!("{ast:#?}");
         assert_eq!(parser.current, Token::EOF)
@@ -94,7 +94,7 @@ mod test_object {
 
     #[test]
     fn test_object_simple() {
-        let mut parser = Parser::new("a = {b,c}".to_string());
+        let mut parser = Parser::new("a = {b,c}".to_string()).unwrap();
         let ast = parser.parse();
         println!("{ast:#?}");
         assert_eq!(parser.current, Token::EOF)
@@ -102,7 +102,7 @@ mod test_object {
 
     #[test]
     fn test_object_method() {
-        let mut parser = Parser::new("a = {b(c){}}".to_string());
+        let mut parser = Parser::new("a = {b(c){}}".to_string()).unwrap();
         let ast = parser.parse();
         println!("{ast:#?}");
         assert_eq!(parser.current, Token::EOF)
@@ -110,7 +110,7 @@ mod test_object {
 
     #[test]
     fn test_object_call() {
-        let mut parser = Parser::new("a = {b: 1,c:d({})}".to_string());
+        let mut parser = Parser::new("a = {b: 1,c:d({})}".to_string()).unwrap();
         let ast = parser.parse();
         println!("{ast:#?}");
         assert_eq!(parser.current, Token::EOF)
@@ -118,7 +118,7 @@ mod test_object {
 
     #[test]
     fn test_object_deep() {
-        let mut parser = Parser::new("a = {b: 1,c: {d: 2}}".to_string());
+        let mut parser = Parser::new("a = {b: 1,c: {d: 2}}".to_string()).unwrap();
         let ast = parser.parse();
         println!("{ast:#?}");
         assert_eq!(parser.current, Token::EOF)

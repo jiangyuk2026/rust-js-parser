@@ -59,7 +59,7 @@ mod test_let {
 
     #[test]
     fn test_digit() {
-        let mut parser = Parser::new("let a = 1".to_string());
+        let mut parser = Parser::new("let a = 1".to_string()).unwrap();
 
         let result = build_let(&mut parser);
         println!("{result:#?}");
@@ -67,7 +67,7 @@ mod test_let {
 
     #[test]
     fn test_string() {
-        let mut parser = Parser::new("let a = \"abce\"".to_string());
+        let mut parser = Parser::new("let a = \"abce\"".to_string()).unwrap();
 
         let result = build_let(&mut parser);
         println!("{result:#?}");
@@ -75,7 +75,7 @@ mod test_let {
 
     #[test]
     fn test_express() {
-        let mut parser = Parser::new("let a = 1 + 2".to_string());
+        let mut parser = Parser::new("let a = 1 + 2".to_string()).unwrap();
 
         let result = build_let(&mut parser);
         println!("{result:#?}");
@@ -83,7 +83,7 @@ mod test_let {
 
     #[test]
     fn test_comma() {
-        let mut parser = Parser::new("let a = 3, b = 2".to_string());
+        let mut parser = Parser::new("let a = 3, b = 2".to_string()).unwrap();
 
         let result = build_let(&mut parser);
         println!("{result:#?}");

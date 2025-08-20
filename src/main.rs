@@ -11,7 +11,7 @@ mod lex;
 mod node;
 mod parser;
 
-fn main() {
+fn main() -> Result<(), String> {
     let mut str = String::new();
     let file_path = concat!(env!("CARGO_MANIFEST_DIR"), "/src/a.js");
     print!("{file_path}");
@@ -21,9 +21,11 @@ fn main() {
         .expect("Failed to read file");
     // println!("{:#?}", str);
 
-    let mut parser = Parser::new(str);
+    let mut parser = Parser::new(str)?;
     let ast = parser.parse();
 
     println!("{:#?}", ast);
     println!("{:#?}", parser.loc);
+
+    Ok(())
 }

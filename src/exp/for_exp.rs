@@ -63,7 +63,7 @@ mod test {
 
     #[test]
     fn test_for() {
-        let mut parser = Parser::new("for(let i =1; i < 10;i++) {}".to_string());
+        let mut parser = Parser::new("for(let i =1; i < 10;i++) {}".to_string()).unwrap();
         let ast = parser.parse();
         println!("{ast:#?}");
         assert_eq!(parser.current, Token::EOF)
@@ -71,21 +71,21 @@ mod test {
 
     #[test]
     fn test_for_empty() {
-        let mut parser = Parser::new("for(let i =1; i < 10;i++);".to_string());
+        let mut parser = Parser::new("for(let i =1; i < 10;i++);".to_string()).unwrap();
         let ast = parser.parse();
         assert_eq!(parser.current, Token::EOF)
     }
 
     #[test]
     fn test_for_empty2() {
-        let mut parser = Parser::new("for(let i =1; i < 10;i++);".to_string());
+        let mut parser = Parser::new("for(let i =1; i < 10;i++);".to_string()).unwrap();
         let ast = parser.parse();
         assert_eq!(parser.current, Token::EOF)
     }
 
     #[test]
     fn for_body() {
-        let mut parser = Parser::new("for(let i =1; i < 10;i++){let a = 1;let b= 2;}".to_string());
+        let mut parser = Parser::new("for(let i =1; i < 10;i++){let a = 1;let b= 2;}".to_string()).unwrap();
         let ast = parser.parse();
         assert_eq!(parser.current, Token::EOF)
     }

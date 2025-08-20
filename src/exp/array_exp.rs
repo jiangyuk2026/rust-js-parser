@@ -33,7 +33,7 @@ mod test_array {
 
     #[test]
     fn test_empty() {
-        let mut parser = Parser::new("a = []".to_string());
+        let mut parser = Parser::new("a = []".to_string()).unwrap();
         let ast = parser.parse();
         println!("{ast:#?}");
         assert_eq!(parser.current, Token::EOF)
@@ -41,7 +41,7 @@ mod test_array {
 
     #[test]
     fn test_object() {
-        let mut parser = Parser::new("a = [1,2,3]".to_string());
+        let mut parser = Parser::new("a = [1,2,3]".to_string()).unwrap();
         let ast = parser.parse();
         println!("{ast:#?}");
         assert_eq!(parser.current, Token::EOF)
@@ -49,7 +49,7 @@ mod test_array {
 
     #[test]
     fn test_object_call() {
-        let mut parser = Parser::new("a = [1,2,3, [4,5]]".to_string());
+        let mut parser = Parser::new("a = [1,2,3, [4,5]]".to_string()).unwrap();
         let ast = parser.parse();
         println!("{ast:#?}");
         assert_eq!(parser.current, Token::EOF)
