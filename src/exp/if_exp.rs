@@ -1,7 +1,7 @@
 use crate::express::{expect, expect_keyword, is_ctrl_word, ok_box, parse_expression};
 use crate::lex::Token;
 use crate::node::Node;
-use crate::node::Node::{BlockStatement, EmptyStatement, IfStatement};
+use crate::node::Node::{EmptyStatement, IfStatement};
 use crate::parser::Parser;
 
 pub fn build_if(parser: &mut Parser) -> Result<Box<Node>, String> {
@@ -26,7 +26,9 @@ pub fn build_if(parser: &mut Parser) -> Result<Box<Node>, String> {
 
     if parser.current == Token::Else {
         parser.next()?;
-        if is_ctrl_word(&parser.current, "{") {
+        if parser.current == Token::If {
+            alternate = Some(build_if(parser)?);
+        } else if is_ctrl_word(&parser.current, "{") {
             alternate = Some(Parser::parse_block(parser)?);
         } else {
             alternate = Some(Box::new(EmptyStatement {}));
@@ -54,10 +56,17 @@ mod test_if_statement {
         assert_eq!(parser.current, Token::EOF)
     }
 
-
     #[test]
     fn test_if_else() {
         let mut parser = Parser::new("if (a) {} else {let b = 1;}".to_string()).unwrap();
+        let ast = parser.parse();
+        println!("{ast:#?}");
+        assert_eq!(parser.current, Token::EOF)
+    }
+
+    #[test]
+    fn test_if_else_if() {
+        let mut parser = Parser::new("if (1) {} else if(2){} else {}".to_string()).unwrap();
         let ast = parser.parse();
         println!("{ast:#?}");
         assert_eq!(parser.current, Token::EOF)

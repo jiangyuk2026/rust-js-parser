@@ -363,6 +363,9 @@ impl Lex {
                     '/' => {
                         return self.read_comment();
                     }
+                    '*' => {
+                        return self.read_multiline_comment();
+                    }
                     '=' => {
                         if self.regex_allowed {
                             return self.read_regex();
@@ -491,6 +494,49 @@ impl Lex {
         Ok(Comment(word))
     }
 
+    fn read_multiline_comment(&mut self) -> Result<Token, String> {
+        let mut word = String::new();
+        let mut end_star_flag = false;
+        loop {
+            self.pos += 1;
+            self.column += 1;
+            let c = self.input.chars().nth(self.pos);
+            match c {
+                Some(c) => match c {
+                    '*' => {
+                        if end_star_flag {
+                            word.push('*');
+                        }
+                        end_star_flag = true;
+                    }
+                    '/' => {
+                        if end_star_flag {
+                            self.pos += 1;
+                            self.column += 1;
+                            break;
+                        }
+                        word.push('/');
+                    }
+                    s => {
+                        if s == '\n' {
+                            self.line += 1;
+                            self.column = 0;
+                        }
+                        if end_star_flag {
+                            word.push('*');
+                            end_star_flag = false;
+                        }
+                        word.push(s);
+                    }
+                },
+                None => {
+                    break;
+                }
+            }
+        }
+        Ok(Comment(word))
+    }
+
     fn read_digit(&mut self) -> Result<Token, String> {
         let c = self.input.chars().nth(self.pos).unwrap();
         let mut word = String::new();
@@ -606,6 +652,14 @@ mod tests {
         let mut lex = Lex::new(input.to_string());
         assert_eq!(lex.next()?.0, Token::Comment("abcd".to_string()));
         assert_eq!(lex.next()?.0, Token::Comment("dddd".to_string()));
+        Ok(())
+    }
+
+    #[test]
+    fn test_multiline_comment() -> Result<(), String> {
+        let input = "/*//***\n /**/";
+        let mut lex = Lex::new(input.to_string());
+        assert_eq!(lex.next()?.0, Token::Comment("//***\n /*".to_string()));
         Ok(())
     }
 

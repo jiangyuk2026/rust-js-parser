@@ -39,15 +39,13 @@ fn build_declarator(parser: &mut Parser) -> Result<Box<Node>, String> {
         if !is_ctrl_word(equal, "=") {
             return Ok(Box::new(VariableDeclarator {
                 id,
-                init: Box::new(Node::Identity {
-                    name: "undefined".to_string(),
-                }),
+                init: None,
             }));
         }
         parser.next()?;
         return Ok(Box::new(VariableDeclarator {
             id,
-            init: parse_expression(parser, 1)?,
+            init: Some(parse_expression(parser, 1)?),
         }));
     }
     Err(format!("expect Variable, find {id}"))

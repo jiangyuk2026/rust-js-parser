@@ -64,7 +64,7 @@ pub enum Node {
     },
     VariableDeclarator {
         id: Box<Node>,
-        init: Box<Node>,
+        init: Option<Box<Node>>,
     },
     AssignmentExpression {
         left: Box<Node>,
@@ -114,6 +114,11 @@ pub enum Node {
         init: Box<Node>,
         test: Box<Node>,
         update: Box<Node>,
+        body: Box<Node>,
+    },
+    ForInStatement {
+        left: Box<Node>,
+        right: Box<Node>,
         body: Box<Node>,
     },
     FunctionDeclaration {

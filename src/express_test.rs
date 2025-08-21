@@ -73,6 +73,15 @@ mod test {
     }
 
     #[test]
+    fn test_in_in() -> Result<(), String> {
+        let mut parser = Parser::new("a in a in a".to_string()).unwrap();
+        let ast = parser.parse()?;
+        println!("{:#?}", ast);
+        assert_eq!(parser.current, Token::EOF);
+        Ok(())
+    }
+
+    #[test]
     fn test_question() {
         let mut parser = Parser::new("a = b ? c ? d : e : f".to_string()).unwrap();
         let ast = parser.parse();
@@ -149,10 +158,12 @@ mod test {
         assert!(ast.is_ok());
         assert_eq!(parser.current, Token::EOF);
     }
+
     #[test]
     fn member_call_mix() {
         let mut parser =
-            Parser::new("recast.print(node).code.substring(0, limit).replace('', '')".to_string()).unwrap();
+            Parser::new("recast.print(node).code.substring(0, limit).replace('', '')".to_string())
+                .unwrap();
         let ast = parser.parse();
         println!("{:#?}", ast);
         assert!(ast.is_ok());

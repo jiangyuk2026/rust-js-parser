@@ -2,23 +2,55 @@ use crate::exp::declaration_exp::build_let;
 use crate::express::{expect, expect_keyword, is_ctrl_word, ok_box, parse_expression};
 use crate::lex::Token;
 use crate::node::Node;
-use crate::node::Node::{EmptyStatement, ForStatement};
-use crate::parser::Parser;
+use crate::node::Node::{
+    EmptyStatement, ForInStatement, ForStatement, Identity, VariableDeclaration, VariableDeclarator,
+};
+use crate::parser::{IsForIn, Parser};
 
 pub fn build_for(parser: &mut Parser) -> Result<Box<Node>, String> {
     let init: Box<Node>;
     let test: Box<Node>;
     let update: Box<Node>;
-    let body: Box<Node>;
     expect_keyword(&parser.current, Token::For)?;
     parser.next()?;
     expect(parser, "(")?;
+
+    parser.in_for_init = true;
+    parser.is_for_in = IsForIn::Maybe;
     if parser.current == Token::Let {
         init = build_let(parser)?;
-    } else if is_ctrl_word(&parser.current, ";") {
-        init = Box::new(EmptyStatement {});
-    } else {
+        if parser.current == Token::In {
+            parser.is_for_in = IsForIn::Must;
+            is_single_variable_without_value(&*init)?;
+            parser.next()?;
+        } else {
+            parser.is_for_in = IsForIn::Impossible;
+        }
+    } else if let Token::Variable(_) = &parser.current {
         init = parse_expression(parser, 0)?;
+        if parser.current == Token::In {
+            if !matches!(*init, Identity { .. }) {
+                return Err("for in: syntax error".to_string());
+            }
+            parser.next()?;
+            parser.is_for_in = IsForIn::Must;
+        } else {
+            parser.is_for_in = IsForIn::Impossible;
+        }
+    } else {
+        parser.is_for_in = IsForIn::Impossible;
+        init = parse_expression(parser, 0)?;
+    }
+
+    if parser.is_for_in == IsForIn::Must {
+        let right = parse_expression(parser, 0)?;
+        expect(parser, ")")?;
+        let body = parse_expression(parser, 0)?;
+        return ok_box(ForInStatement {
+            left: init,
+            right,
+            body,
+        });
     }
 
     expect(parser, ";")?;
@@ -34,8 +66,33 @@ pub fn build_for(parser: &mut Parser) -> Result<Box<Node>, String> {
     } else {
         update = parse_expression(parser, 0)?;
     }
-
     expect(parser, ")")?;
+    ok_box(ForStatement {
+        init,
+        test,
+        update,
+        body: build_for_body(parser)?,
+    })
+}
+
+fn is_single_variable_without_value(node: &Node) -> Result<bool, String> {
+    if let VariableDeclaration { declarations, .. } = node {
+        if declarations.len() != 1 {
+            return Err("for in: syntax error, more than one variable".to_string());
+        }
+        if let VariableDeclarator { init, .. } = &declarations[0] {
+            if init.is_some() {
+                return Err("for in: syntax error".to_string());
+            }
+        }
+    } else {
+        panic!("unhandled variable declaration");
+    }
+    Ok(true)
+}
+
+fn build_for_body(parser: &mut Parser) -> Result<Box<Node>, String> {
+    let body: Box<Node>;
     if is_ctrl_word(&parser.current, "{") {
         body = Parser::parse_block(parser)?;
     } else if is_ctrl_word(&parser.current, ";") {
@@ -44,12 +101,7 @@ pub fn build_for(parser: &mut Parser) -> Result<Box<Node>, String> {
     } else {
         return Err("for body error".to_string());
     }
-    ok_box(ForStatement {
-        init,
-        test,
-        update,
-        body,
-    })
+    Ok(body)
 }
 
 #[cfg(test)]
@@ -81,8 +133,34 @@ mod test {
 
     #[test]
     fn for_body() {
-        let mut parser = Parser::new("for(let i =1; i < 10;i++){let a = 1;let b= 2;}".to_string()).unwrap();
+        let mut parser =
+            Parser::new("for(let i =1; i < 10;i++){let a = 1;let b= 2;}".to_string()).unwrap();
         let ast = parser.parse();
         assert_eq!(parser.current, Token::EOF)
+    }
+
+    #[test]
+    fn test_for_in() {
+        let mut parser = Parser::new("for(let i in {}) {}".to_string()).unwrap();
+        let ast = parser.parse();
+        println!("{ast:#?}");
+        assert_eq!(parser.current, Token::EOF)
+    }
+
+    #[test]
+    fn test_for_in_err1() {
+        let mut parser = Parser::new("for(let i,b in {}) {}".to_string()).unwrap();
+        let ast = parser.parse();
+        assert_eq!(
+            ast,
+            Err("for in: syntax error, more than one variable".to_string())
+        )
+    }
+
+    #[test]
+    fn test_for_in_err2() {
+        let mut parser = Parser::new("for(let i=1 in {}) {}".to_string()).unwrap();
+        let ast = parser.parse();
+        assert_eq!(ast, Err("for in: syntax error".to_string()))
     }
 }

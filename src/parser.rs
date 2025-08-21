@@ -17,12 +17,22 @@ pub enum IsArrowFunction {
     Must,
 }
 
+#[derive(PartialEq, Debug)]
+pub enum IsForIn {
+    Impossible,
+    Maybe,
+    Must,
+}
+
 pub struct Parser {
     pub current: Token,
     pub is_arrow_function: IsArrowFunction,
+    pub is_for_in: IsForIn,
+    pub in_for_init: bool,
     pub list: Vec<Token>,
     pub loc: Loc,
     pub last_loc: Loc,
+    comment: Option<Token>,
     regex_allowed: bool,
     lex: Lex,
 }
@@ -40,10 +50,13 @@ impl Parser {
         }
 
         let parser = Parser {
+            comment: None,
             current: current.clone(),
             loc: loc.clone(),
             last_loc: loc,
             is_arrow_function: IsArrowFunction::Maybe,
+            in_for_init: false,
+            is_for_in: IsForIn::Maybe,
             list: vec![current],
             regex_allowed: true,
             lex,
@@ -82,6 +95,10 @@ impl Parser {
             match &parser.current {
                 Token::EOF => break,
                 Token::LF => parser.next()?,
+                Token::Comment(_) => {
+                    parser.comment = Some(parser.current.clone());
+                    parser.next()?;
+                }
                 Token::Control(s) => match s.as_str() {
                     ";" => {
                         parser.next()?;

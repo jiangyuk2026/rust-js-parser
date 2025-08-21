@@ -147,7 +147,11 @@ pub fn parse_expression(parser: &mut Parser, min_level: u8) -> Result<Box<Node>,
                 break;
             }
             Token::Instanceof => {}
-            Token::In => {}
+            Token::In => {
+                if parser.in_for_init {
+                    break;
+                }
+            }
             Token::Void => {}
             _ => break,
         }
@@ -288,11 +292,16 @@ pub fn parse_expression(parser: &mut Parser, min_level: u8) -> Result<Box<Node>,
                     return Err(format!("unsupported operator {:?}", &operator));
                 }
             },
-            Token::Instanceof => {
+            Token::Instanceof | Token::In => {
+                let operator = if operator == Token::Instanceof {
+                    "instanceof"
+                } else {
+                    "in"
+                };
                 parser.next()?;
                 let right = parse_expression(parser, l + 1)?;
                 left = Box::new(Node::BinaryExpression {
-                    operator: "instanceof".to_string(),
+                    operator: operator.to_string(),
                     left,
                     right,
                     extra: Extra::Parenthesized,
