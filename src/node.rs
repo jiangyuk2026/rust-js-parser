@@ -1,4 +1,4 @@
-use crate::lex::Token;
+use crate::token::Token;
 
 #[derive(Debug, PartialEq, Clone)]
 pub enum Extra {
@@ -173,6 +173,9 @@ pub enum Node {
         body: Box<Node>,
     },
     BreakStatement {
+        label: Option<Box<Node>>,
+    },
+    ContinueStatement {
         label: Option<Box<Node>>,
     },
     ThrowStatement {

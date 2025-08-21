@@ -1,11 +1,11 @@
 use crate::exp::declaration_exp::build_let;
 use crate::express::{expect, expect_keyword, is_ctrl_word, ok_box, parse_expression};
-use crate::lex::Token;
 use crate::node::Node;
 use crate::node::Node::{
     EmptyStatement, ForInStatement, ForStatement, Identity, VariableDeclaration, VariableDeclarator,
 };
 use crate::parser::{IsForIn, Parser};
+use crate::token::Token;
 
 pub fn build_for(parser: &mut Parser) -> Result<Box<Node>, String> {
     let init: Box<Node>;
@@ -39,13 +39,18 @@ pub fn build_for(parser: &mut Parser) -> Result<Box<Node>, String> {
         }
     } else {
         parser.is_for_in = IsForIn::Impossible;
-        init = parse_expression(parser, 0)?;
+        if is_ctrl_word(&parser.current, ";") {
+            init = Box::new(EmptyStatement {});
+        } else {
+            init = parse_expression(parser, 0)?;
+        }
     }
+    parser.in_for_init = false;
 
     if parser.is_for_in == IsForIn::Must {
         let right = parse_expression(parser, 0)?;
         expect(parser, ")")?;
-        let body = parse_expression(parser, 0)?;
+        let body = build_for_body(parser)?;
         return ok_box(ForInStatement {
             left: init,
             right,
@@ -106,8 +111,8 @@ fn build_for_body(parser: &mut Parser) -> Result<Box<Node>, String> {
 
 #[cfg(test)]
 mod test {
-    use crate::lex::Token;
     use crate::parser::Parser;
+    use crate::token::Token;
 
     #[test]
     fn test_for() {

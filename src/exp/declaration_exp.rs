@@ -1,8 +1,8 @@
 use crate::express::{expect_keys, is_ctrl_word, parse_expression};
-use crate::lex::Token;
 use crate::node::Node;
 use crate::node::Node::{VariableDeclaration, VariableDeclarator};
 use crate::parser::Parser;
+use crate::token::Token;
 
 pub fn build_let(parser: &mut Parser) -> Result<Box<Node>, String> {
     let kind = expect_keys(&parser.current, &vec![Token::Var, Token::Let, Token::Const])?;

@@ -23,8 +23,8 @@ pub fn build_array(parser: &mut Parser) -> Result<Box<Node>, String> {
 
 #[cfg(test)]
 mod test_array {
-    use crate::lex::Token;
     use crate::parser::Parser;
+    use crate::token::Token;
 
     #[test]
     fn test_empty() {

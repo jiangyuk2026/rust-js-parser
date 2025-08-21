@@ -2,53 +2,49 @@ use crate::exp::array_exp::build_array;
 use crate::exp::arrow_function_exp::build_possible_arrow_function;
 use crate::exp::function_exp::build_function;
 use crate::exp::object_exp::build_object;
-use crate::lex::Token;
 use crate::node::Node::{
     BooleanLiteral, Identity, NewExpression, NullLiteral, RegExpLiteral, SequenceExpression,
     TemplateElement, TemplateLiteral, ThisExpression, UnaryExpression,
 };
 use crate::node::{Extra, Node};
 use crate::parser::Parser;
+use crate::token::Token;
 
 pub fn parse_expression(parser: &mut Parser, min_level: u8) -> Result<Box<Node>, String> {
-    let word = parser.current.clone();
-    if let Token::Control(s) = word {
+    if parser.current == Token::Function {
+        return Ok(build_function(parser, false)?);
+    }
+    let mut left: Box<Node>;
+    if let Token::Control(s) = &parser.current {
+        let operator = s.to_string();
         let l = get_level(&parser.current)?;
         match s.as_str() {
             "++" => {
                 parser.next()?;
-                return Ok(Box::new(Node::UpdateExpression {
-                    operator: s.to_string(),
+                left = Box::new(Node::UpdateExpression {
+                    operator,
                     prefix: true,
                     argument: parse_expression(parser, l + 1)?,
-                }));
+                });
             }
             "+" | "-" | "!" | "typeof" => {
                 parser.next()?;
-                return Ok(Box::new(UnaryExpression {
-                    operator: s.to_string(),
+                left = Box::new(UnaryExpression {
+                    operator,
                     prefix: true,
                     argument: parse_expression(parser, l + 1)?,
-                }));
+                });
             }
             "(" => {
-                return build_possible_arrow_function(parser);
+                left = build_possible_arrow_function(parser)?;
             }
             "[" => {
-                return build_array(parser);
+                left = build_array(parser)?;
             }
-            "{" => return build_object(parser),
+            "{" => left = build_object(parser)?,
             _ => return Err("expect control,".to_string()),
-        };
-    }
-
-    if parser.current == Token::Function {
-        return Ok(build_function(parser, false)?);
-    }
-
-    let mut left: Box<Node>;
-
-    if parser.current == Token::Typeof {
+        }
+    } else if parser.current == Token::Typeof {
         parser.next()?;
         left = Box::new(UnaryExpression {
             argument: parse_expression(parser, 14)?,

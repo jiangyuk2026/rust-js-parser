@@ -1,11 +1,11 @@
 use crate::exp::function_exp::handle_function_params;
 use crate::express::{expect, is_ctrl_word, ok_box, parse_expression};
-use crate::lex::Token;
 use crate::node::Node;
 use crate::node::Node::{
     NumericLiteral, ObjectExpression, ObjectMethod, ObjectProperty, StringLiteral,
 };
 use crate::parser::Parser;
+use crate::token::Token;
 
 pub fn build_object(parser: &mut Parser) -> Result<Box<Node>, String> {
     let mut properties = vec![];
@@ -70,8 +70,8 @@ pub fn build_object(parser: &mut Parser) -> Result<Box<Node>, String> {
 
 #[cfg(test)]
 mod test_object {
-    use crate::lex::Token;
     use crate::parser::Parser;
+    use crate::token::Token;
 
     #[test]
     fn test_empty() {

@@ -1,8 +1,8 @@
 use crate::express::{expect, expect_keyword, is_ctrl_word, ok_box, parse_expression};
-use crate::lex::Token;
 use crate::node::Node;
 use crate::node::Node::{SwitchCase, SwitchStatement};
 use crate::parser::Parser;
+use crate::token::Token;
 
 pub fn build_switch(parser: &mut Parser) -> Result<Box<Node>, String> {
     let discriminant: Box<Node>;
@@ -47,8 +47,8 @@ pub fn build_switch(parser: &mut Parser) -> Result<Box<Node>, String> {
 
 #[cfg(test)]
 mod test_switch_statement {
-    use crate::lex::Token;
     use crate::parser::Parser;
+    use crate::token::Token;
 
     #[test]
     fn test_switch() {

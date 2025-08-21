@@ -1,11 +1,11 @@
 use crate::express::{expect, expect_keyword, is_ctrl_word, ok_box, parse_expression};
-use crate::lex::Token;
 use crate::node::Node;
 use crate::node::Node::{
     ArrayPattern, AssignmentPattern, FunctionDeclaration, FunctionExpression, Identity,
     ObjectPattern, ObjectProperty,
 };
 use crate::parser::Parser;
+use crate::token::Token;
 
 pub fn build_function(parser: &mut Parser, is_declaration: bool) -> Result<Box<Node>, String> {
     let id: Option<Box<Node>>;
@@ -185,8 +185,8 @@ fn handle_array(parser: &mut Parser) -> Result<Node, String> {
 
 #[cfg(test)]
 mod test {
-    use crate::lex::Token;
     use crate::parser::Parser;
+    use crate::token::Token;
 
     #[test]
     fn test_function() {

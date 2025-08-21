@@ -1,5 +1,4 @@
 use crate::express::{expect, is_ctrl_word, ok_box, parse_expression};
-use crate::lex::Token;
 use crate::node::Node::{
     ArrayExpression, ArrowFunctionExpression, AssignmentExpression, AssignmentPattern, Identity,
     NumericLiteral, ObjectExpression, ObjectProperty, SequenceExpression, StringLiteral,
@@ -7,6 +6,7 @@ use crate::node::Node::{
 use crate::node::{Extra, Node};
 use crate::parser::{IsArrowFunction, Parser};
 use std::cmp::PartialEq;
+use crate::token::Token;
 
 pub fn build_possible_arrow_function(parser: &mut Parser) -> Result<Box<Node>, String> {
     let mut params = vec![];
@@ -177,8 +177,8 @@ mod test_arrow_function {
     use crate::exp::arrow_function_exp::{
         IsArrowFunction, build_possible_array, build_possible_arrow_function, build_possible_object,
     };
-    use crate::lex::Token;
     use crate::parser::Parser;
+    use crate::token::Token;
 
     #[test]
     fn arrow_function_param() -> Result<(), String> {

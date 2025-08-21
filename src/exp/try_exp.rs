@@ -1,8 +1,8 @@
 use crate::express::{expect_keyword, is_ctrl_word, ok_box};
-use crate::lex::Token;
 use crate::node::Node;
 use crate::node::Node::{CatchClause, Identity, TryStatement};
 use crate::parser::Parser;
+use crate::token::Token;
 
 pub fn build_try(parser: &mut Parser) -> Result<Box<Node>, String> {
     let block: Box<Node>;
@@ -69,8 +69,8 @@ pub fn build_try(parser: &mut Parser) -> Result<Box<Node>, String> {
 
 #[cfg(test)]
 mod test_try_statement {
-    use crate::lex::Token;
     use crate::parser::Parser;
+    use crate::token::Token;
 
     #[test]
     fn try_catch_no_param() {

@@ -1,8 +1,8 @@
 use crate::express::{expect, expect_keyword, is_ctrl_word, ok_box, parse_expression};
-use crate::lex::Token;
 use crate::node::Node;
 use crate::node::Node::{EmptyStatement, IfStatement};
 use crate::parser::Parser;
+use crate::token::Token;
 
 pub fn build_if(parser: &mut Parser) -> Result<Box<Node>, String> {
     let test: Box<Node>;
@@ -45,8 +45,8 @@ pub fn build_if(parser: &mut Parser) -> Result<Box<Node>, String> {
 
 #[cfg(test)]
 mod test_if_statement {
-    use crate::lex::Token;
     use crate::parser::Parser;
+    use crate::token::Token;
 
     #[test]
     fn test_if() {

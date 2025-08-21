@@ -5,9 +5,12 @@ use crate::exp::if_exp::build_if;
 use crate::exp::switch_exp::build_switch;
 use crate::exp::try_exp::build_try;
 use crate::express::{expect, is_ctrl_word, parse_expression};
-use crate::lex::{Lex, Loc, Token};
+use crate::lex::{Lex, Loc};
 use crate::node::Node;
-use crate::node::Node::{BlockStatement, BreakStatement, ReturnStatement, ThrowStatement};
+use crate::node::Node::{
+    BlockStatement, BreakStatement, ContinueStatement, ReturnStatement, ThrowStatement,
+};
+use crate::token::Token;
 use std::mem::swap;
 
 #[derive(PartialEq, Debug)]
@@ -69,7 +72,7 @@ impl Parser {
         self.lex.regex_allowed = self.regex_allowed;
         loop {
             (self.current, self.last_loc) = self.lex.next()?;
-            self.list.push(self.current.clone());
+            self.list.insert(0, self.current.clone());
             swap(&mut self.loc, &mut self.last_loc);
             if !matches!(self.current, Token::Comment(_)) {
                 break;
@@ -145,6 +148,10 @@ impl Parser {
                     parser.next()?;
                     ast.push(BreakStatement { label: None })
                 }
+                Token::Continue => {
+                    parser.next()?;
+                    ast.push(ContinueStatement { label: None })
+                }
                 Token::Throw => {
                     parser.next()?;
                     if !parser.is_same_line() || parser.current == Token::EOF {
@@ -185,8 +192,8 @@ impl Parser {
 
 #[cfg(test)]
 mod parser_test {
-    use crate::lex::Token;
     use crate::parser::Parser;
+    use crate::token::Token;
 
     #[test]
     fn test1() {
