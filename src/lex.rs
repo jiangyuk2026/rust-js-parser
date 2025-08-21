@@ -93,7 +93,11 @@ impl Lex {
                         result = self.read_word()?;
                         break;
                     }
-                    '0'..='9' => {
+                    '0' => {
+                        result = self.read_binary_octal_hex_digit()?;
+                        break;
+                    }
+                    '1'..='9' => {
                         result = self.read_digit()?;
                         break;
                     }
@@ -464,6 +468,64 @@ impl Lex {
         Ok(Token::Digit(word))
     }
 
+    fn read_binary_octal_hex_digit(&mut self) -> Result<Token, String> {
+        let c = self.input.chars().nth(self.pos).unwrap();
+        let mut word = String::new();
+        let mut flag = "".to_string();
+        word.push(c);
+        loop {
+            self.pos += 1;
+            self.column += 1;
+            let c = self.input.chars().nth(self.pos);
+            if c.is_none() {
+                break;
+            }
+            if c.unwrap().is_ascii_whitespace() {
+                break;
+            }
+            match c {
+                Some(c) => match c {
+                    'o' | 'b' | 'x' => {
+                        if flag == "" {
+                            word.push(c);
+                            flag = c.to_string();
+                        } else {
+                            return Err("digit syntax error".to_string());
+                        }
+                    }
+                    '_' | '0'..='9' | 'a'..='f' | 'A'..='F' => {
+                        if flag == "b" {
+                            match c {
+                                '_' | '0'..='1' => {
+                                    word.push(c);
+                                }
+                                _ => {
+                                    return Err("digit syntax error".to_string());
+                                }
+                            }
+                        } else if flag == "o" {
+                            match c {
+                                '_' | '0'..='7' => {
+                                    word.push(c);
+                                }
+                                _ => {
+                                    return Err("digit syntax error".to_string());
+                                }
+                            }
+                        } else {
+                            word.push(c);
+                        }
+                    }
+                    _ => {
+                        break;
+                    }
+                },
+                None => break,
+            }
+        }
+        Ok(Token::Digit(word))
+    }
+
     fn read_template_str(&mut self) -> Result<Token, String> {
         let mut word = String::new();
         loop {
@@ -552,6 +614,22 @@ mod tests {
         let input = "/*//***\n /**/";
         let mut lex = Lex::new(input.to_string());
         assert_eq!(lex.next()?.0, Token::Comment("//***\n /*".to_string()));
+        Ok(())
+    }
+
+    #[test]
+    fn test_binary_digit() -> Result<(), String> {
+        let input = "0b0001+2";
+        let mut lex = Lex::new(input.to_string());
+        assert_eq!(lex.next()?.0, Token::Digit("0b0001".to_string()));
+        Ok(())
+    }
+
+    #[test]
+    fn test_octal_digit() -> Result<(), String> {
+        let input = "0o7001+2";
+        let mut lex = Lex::new(input.to_string());
+        assert_eq!(lex.next()?.0, Token::Digit("0o7001".to_string()));
         Ok(())
     }
 

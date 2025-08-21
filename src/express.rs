@@ -208,7 +208,7 @@ pub fn parse_expression(parser: &mut Parser, min_level: u8) -> Result<Box<Node>,
                     })
                 }
                 "+" | "-" | "*" | "/" | "%" | ">" | "<" | ">=" | "<=" | "==" | "===" | "!="
-                | "!==" => {
+                | "&" | "|" | "<<" | ">>" | "!==" => {
                     parser.next()?;
                     let right = parse_expression(parser, l + 1)?;
                     left = Box::new(Node::BinaryExpression {
@@ -238,11 +238,8 @@ pub fn parse_expression(parser: &mut Parser, min_level: u8) -> Result<Box<Node>,
                 "?" => {
                     parser.next()?;
                     let consequent = parse_expression(parser, l)?;
-                    if !is_ctrl_word(&parser.current, ":") {
-                        return Err("expect :".to_string());
-                    }
-                    parser.next()?;
-                    let alternate = parse_expression(parser, l + 1)?;
+                    expect(parser, ":")?;
+                    let alternate = parse_expression(parser, l)?;
                     return ok_box(Node::ConditionalExpression {
                         test: left,
                         consequent,
