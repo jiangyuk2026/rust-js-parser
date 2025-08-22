@@ -89,7 +89,7 @@ impl Lex {
                         result = Token::Control(c.to_string());
                         break;
                     }
-                    '_' | 'a'..='z' | 'A'..='Z' => {
+                    '_' | '$' | 'a'..='z' | 'A'..='Z' => {
                         result = self.read_word()?;
                         break;
                     }
@@ -130,7 +130,7 @@ impl Lex {
             let d = self.input.chars().nth(self.pos);
             match d {
                 Some(d) => match d {
-                    '_' | 'a'..='z' | 'A'..='Z' | '0'..='9' => word.push(d),
+                    '_' | '$' | 'a'..='z' | 'A'..='Z' | '0'..='9' => word.push(d),
                     _ => break,
                 },
                 None => break,
@@ -476,56 +476,77 @@ impl Lex {
         let c = self.input.chars().nth(self.pos).unwrap();
         let mut word = String::new();
         let mut flag = "".to_string();
+        let mut underscore_allowed = false;
+        let mut underscore_ended = false;
         word.push(c);
         loop {
             self.pos += 1;
             self.column += 1;
-            let c = self.input.chars().nth(self.pos);
-            if c.is_none() {
+            let d = self.input.chars().nth(self.pos);
+            if d.is_none() {
                 break;
             }
-            if c.unwrap().is_ascii_whitespace() {
+            let d = d.unwrap();
+            if d.is_ascii_whitespace() {
                 break;
             }
-            match c {
-                Some(c) => match c {
-                    'o' | 'b' | 'x' => {
-                        if flag == "" {
-                            word.push(c);
-                            flag = c.to_string();
-                        } else {
-                            return Err("digit syntax error".to_string());
-                        }
-                    }
-                    '_' | '0'..='9' | 'a'..='f' | 'A'..='F' => {
-                        if flag == "b" {
-                            match c {
-                                '_' | '0'..='1' => {
-                                    word.push(c);
-                                }
-                                _ => {
-                                    return Err("digit syntax error".to_string());
-                                }
-                            }
-                        } else if flag == "o" {
-                            match c {
-                                '_' | '0'..='7' => {
-                                    word.push(c);
-                                }
-                                _ => {
-                                    return Err("digit syntax error".to_string());
-                                }
-                            }
-                        } else {
-                            word.push(c);
-                        }
-                    }
-                    _ => {
-                        break;
-                    }
-                },
-                None => break,
+            if d == '_' {
+                if underscore_allowed {
+                    word.push('_');
+                    underscore_allowed = false;
+                    underscore_ended = true;
+                    continue;
+                } else {
+                    return Err("digit _ error".to_string());
+                }
             }
+            if flag == "b" {
+                if ('0'..='1').contains(&d) {
+                    word.push(d);
+                    underscore_allowed = true;
+                    underscore_ended = false;
+                    continue;
+                } else {
+                    break;
+                }
+            }
+            if flag == "o" {
+                if ('0'..='7').contains(&d) {
+                    word.push(d);
+                    underscore_allowed = true;
+                    underscore_ended = false;
+                    continue;
+                } else {
+                    break;
+                }
+            }
+            if flag == "x" {
+                if ('0'..='9').contains(&d) || ('a'..='f').contains(&d) || ('A'..='F').contains(&d)
+                {
+                    word.push(d);
+                    underscore_allowed = true;
+                    underscore_ended = false;
+                    continue;
+                } else {
+                    break;
+                }
+            }
+            match d {
+                'o' | 'b' | 'x' => {
+                    if flag == "" {
+                        word.push(d);
+                        flag = d.to_string();
+                    } else {
+                        return Err("digit syntax error".to_string());
+                    }
+                }
+                _ => {
+                    break;
+                }
+            }
+        }
+        if underscore_ended {
+            return Err("digit _ error".to_string());
         }
         Ok(Token::Digit(word))
     }

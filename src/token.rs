@@ -66,46 +66,89 @@ impl Display for Token {
             }
             Token::Comment(_) => write!(f, "Comment"),
             Token::String(_) => write!(f, "String"),
-            Token::Var => write!(f, "Var"),
-            Token::Let => write!(f, "Let"),
-            Token::Const => write!(f, "Const"),
-            Token::Undefined => write!(f, "Undefined"),
-            Token::Null => write!(f, "Null"),
-            Token::Await => write!(f, "Await"),
-            Token::Async => write!(f, "Async"),
-            Token::Function => write!(f, "Function"),
-            Token::With => write!(f, "With"),
-            Token::Delete => write!(f, "Delete"),
-            Token::If => write!(f, "If"),
-            Token::Switch => write!(f, "Switch"),
-            Token::Case => write!(f, "Case"),
-            Token::Default => write!(f, "Default"),
-            Token::Break => write!(f, "Break"),
-            Token::Continue => write!(f, "Continue"),
-            Token::For => write!(f, "For"),
-            Token::While => write!(f, "While"),
-            Token::Return => write!(f, "Return"),
             Token::EOF => write!(f, "EOF"),
-            Token::True => write!(f, "True"),
-            Token::False => write!(f, "False"),
-            Token::Else => write!(f, "Else"),
-            Token::In => write!(f, "In"),
-            Token::Do => write!(f, "Do"),
-            Token::Try => write!(f, "Try"),
-            Token::Catch => write!(f, "Catch"),
-            Token::Finally => write!(f, "Finally"),
-            Token::Throw => write!(f, "Throw"),
-            Token::New => write!(f, "New"),
-            Token::This => write!(f, "This"),
-            Token::Instanceof => write!(f, "Instanceof"),
-            Token::Typeof => write!(f, "Typeof"),
-            Token::Class => write!(f, "Class"),
-            Token::Void => write!(f, "Void"),
-            Token::Yield => write!(f, "Yield"),
-            Token::Debugger => write!(f, "Debugger"),
+
+            Token::Var => write!(f, "var"),
+            Token::Let => write!(f, "let"),
+            Token::Const => write!(f, "const"),
+            Token::Undefined => write!(f, "undefined"),
+            Token::Null => write!(f, "null"),
+            Token::Await => write!(f, "await"),
+            Token::Async => write!(f, "async"),
+            Token::Function => write!(f, "function"),
+            Token::With => write!(f, "with"),
+            Token::Delete => write!(f, "delete"),
+            Token::If => write!(f, "if"),
+            Token::Switch => write!(f, "switch"),
+            Token::Case => write!(f, "case"),
+            Token::Default => write!(f, "default"),
+            Token::Break => write!(f, "break"),
+            Token::Continue => write!(f, "continue"),
+            Token::For => write!(f, "for"),
+            Token::While => write!(f, "while"),
+            Token::Return => write!(f, "return"),
+            Token::True => write!(f, "true"),
+            Token::False => write!(f, "false"),
+            Token::Else => write!(f, "else"),
+            Token::In => write!(f, "in"),
+            Token::Do => write!(f, "do"),
+            Token::Try => write!(f, "try"),
+            Token::Catch => write!(f, "catch"),
+            Token::Finally => write!(f, "finally"),
+            Token::Throw => write!(f, "throw"),
+            Token::New => write!(f, "new"),
+            Token::This => write!(f, "this"),
+            Token::Instanceof => write!(f, "instanceof"),
+            Token::Typeof => write!(f, "typeof"),
+            Token::Class => write!(f, "class"),
+            Token::Void => write!(f, "void"),
+            Token::Yield => write!(f, "yield"),
+            Token::Debugger => write!(f, "debugger"),
             _ => {
                 write!(f, "token")
             }
         }
+    }
+}
+
+pub fn is_keyword(token: &Token) -> bool {
+    match token {
+        Token::Var
+        | Token::Let
+        | Token::Const
+        | Token::True
+        | Token::False
+        | Token::Undefined
+        | Token::Null
+        | Token::Await
+        | Token::Async
+        | Token::Function
+        | Token::With
+        | Token::Delete
+        | Token::If
+        | Token::Else
+        | Token::Switch
+        | Token::Case
+        | Token::Default
+        | Token::Break
+        | Token::Continue
+        | Token::For
+        | Token::In
+        | Token::Do
+        | Token::While
+        | Token::Return
+        | Token::Try
+        | Token::Catch
+        | Token::Finally
+        | Token::Throw
+        | Token::New
+        | Token::This
+        | Token::Instanceof
+        | Token::Typeof
+        | Token::Class
+        | Token::Void
+        | Token::Yield
+        | Token::Debugger => true,
+        _ => false,
     }
 }

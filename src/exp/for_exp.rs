@@ -17,7 +17,10 @@ pub fn build_for(parser: &mut Parser) -> Result<Box<Node>, String> {
 
     parser.in_for_init = true;
     parser.is_for_in = IsForIn::Maybe;
-    if parser.current == Token::Let {
+    if parser.current == Token::Let
+        || parser.current == Token::Var
+        || parser.current == Token::Const
+    {
         init = build_let(parser)?;
         if parser.current == Token::In {
             parser.is_for_in = IsForIn::Must;

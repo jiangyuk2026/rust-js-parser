@@ -11,6 +11,7 @@ pub fn build_if(parser: &mut Parser) -> Result<Box<Node>, String> {
 
     expect_keyword(&parser.current, Token::If)?;
     parser.next()?;
+    parser.regex_allowed = true;
     expect(parser, "(")?;
     test = parse_expression(parser, 0)?;
     expect(parser, ")")?;

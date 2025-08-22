@@ -10,6 +10,7 @@ pub fn build_switch(parser: &mut Parser) -> Result<Box<Node>, String> {
 
     expect_keyword(&parser.current, Token::Switch)?;
     parser.next()?;
+    parser.regex_allowed = true;
     expect(parser, "(")?;
     discriminant = parse_expression(parser, 0)?;
     expect(parser, ")")?;

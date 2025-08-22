@@ -38,7 +38,7 @@ pub struct Parser {
     pub last_loc_line: usize,
     comment: Option<Token>,
     pub regex_allowed: bool,
-    pub is_identity_catch: bool,
+    pub is_identity_keyword: bool,
     pub is_identity_finally: bool,
     lex: Lex,
 }
@@ -65,7 +65,7 @@ impl Parser {
             is_for_in: IsForIn::Maybe,
             list: vec![current],
             regex_allowed: true,
-            is_identity_catch: false,
+            is_identity_keyword: false,
             is_identity_finally: false,
             lex,
         };
@@ -74,11 +74,12 @@ impl Parser {
     }
 
     pub fn next(&mut self) -> Result<(), String> {
+        println!("line: {}", self.loc.end.line);
         self.lex.regex_allowed = self.regex_allowed;
         self.last_loc_line = self.loc.end.line;
         loop {
             (self.current, self.loc) = self.lex.next()?;
-            /*if self.last_loc_line> 3120 {
+            /*if self.last_loc_line> 9320 {
                 println!("token: {}", self.current);
             }*/
             // self.list.insert(0, self.current.clone());

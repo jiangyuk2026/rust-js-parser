@@ -12,6 +12,7 @@ pub fn build_possible_arrow_function(parser: &mut Parser) -> Result<Box<Node>, S
     let mut params = vec![];
     let body: Box<Node>;
 
+    parser.regex_allowed = true;
     expect(parser, "(")?;
     parser.is_arrow_function = IsArrowFunction::Maybe;
     loop {

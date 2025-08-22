@@ -8,11 +8,16 @@ use crate::node::Node::{
 };
 use crate::node::{Extra, Node};
 use crate::parser::Parser;
-use crate::token::Token;
+use crate::token::{Token, is_keyword};
 
 pub fn parse_expression(parser: &mut Parser, min_level: u8) -> Result<Box<Node>, String> {
     let mut left: Box<Node>;
-    if parser.current == Token::Function {
+    if parser.is_identity_keyword && is_keyword(&parser.current) {
+        left = Box::new(Identity {
+            name: parser.current.to_string(),
+        });
+        parser.next()?;
+    } else if parser.current == Token::Function {
         left = build_function(parser, false)?;
     } else if let Token::Control(s) = &parser.current {
         let operator = s.to_string();
@@ -109,11 +114,6 @@ pub fn parse_expression(parser: &mut Parser, min_level: u8) -> Result<Box<Node>,
             expect(parser, ")")?;
         }
         left = Box::new(NewExpression { callee, arguments });
-    } else if parser.current == Token::Catch && parser.is_identity_catch {
-        left = Box::new(Identity {
-            name: "catch".to_string(),
-        });
-        parser.next()?;
     } else if let Token::Variable(s) = &parser.current {
         left = Box::new(Identity {
             name: s.to_string(),
@@ -135,7 +135,7 @@ pub fn parse_expression(parser: &mut Parser, min_level: u8) -> Result<Box<Node>,
             &parser.current
         ));
     }
-    parser.is_identity_catch = false;
+    parser.is_identity_keyword = false;
     loop {
         let operator = parser.current.clone();
         match &operator {
@@ -217,7 +217,7 @@ pub fn parse_expression(parser: &mut Parser, min_level: u8) -> Result<Box<Node>,
                 }
                 "." => {
                     parser.next()?;
-                    parser.is_identity_catch = true;
+                    parser.is_identity_keyword = true;
                     let right = parse_expression(parser, l + 1)?;
                     left = Box::new(Node::MemberExpression {
                         computed: false,
