@@ -133,6 +133,15 @@ mod test {
     }
 
     #[test]
+    fn test_void() {
+        let mut parser = Parser::new("void 0".to_string()).unwrap();
+        let ast = parser.parse();
+        println!("{:#?}", ast);
+        assert!(ast.is_ok());
+        assert_eq!(parser.current, Token::EOF);
+    }
+
+    #[test]
     fn test_new_param() {
         let mut parser = Parser::new("new A(1,2,3)".to_string()).unwrap();
         let ast = parser.parse();

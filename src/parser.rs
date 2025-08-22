@@ -13,7 +13,6 @@ use crate::node::Node::{
     ThrowStatement,
 };
 use crate::token::Token;
-use std::mem::swap;
 
 #[derive(PartialEq, Debug)]
 pub enum IsArrowFunction {
@@ -36,9 +35,12 @@ pub struct Parser {
     pub in_for_init: bool,
     pub list: Vec<Token>,
     pub loc: Loc,
-    pub last_loc: Loc,
+    pub last_loc_line: usize,
     comment: Option<Token>,
-    regex_allowed: bool,
+    pub regex_allowed: bool,
+    pub is_identity_keyword: bool,
+    pub is_identity_finally: bool,
+    pub total_word_count: usize,
     lex: Lex,
 }
 
@@ -58,12 +60,15 @@ impl Parser {
             comment: None,
             current: current.clone(),
             loc: loc.clone(),
-            last_loc: loc,
+            last_loc_line: 0,
             is_arrow_function: IsArrowFunction::Maybe,
             in_for_init: false,
             is_for_in: IsForIn::Maybe,
             list: vec![current],
             regex_allowed: true,
+            is_identity_keyword: false,
+            is_identity_finally: false,
+            total_word_count: 0,
             lex,
         };
 
@@ -72,124 +77,126 @@ impl Parser {
 
     pub fn next(&mut self) -> Result<(), String> {
         self.lex.regex_allowed = self.regex_allowed;
+        self.last_loc_line = self.loc.end.line;
         loop {
-            (self.current, self.last_loc) = self.lex.next()?;
+            (self.current, self.loc) = self.lex.next()?;
+            self.total_word_count += 1;
+            /*if self.last_loc_line> 9320 {
+                println!("token: {}", self.current);
+            }*/
             // self.list.insert(0, self.current.clone());
-            swap(&mut self.loc, &mut self.last_loc);
             if !matches!(self.current, Token::Comment(_)) {
                 break;
             }
         }
-        if let Token::Variable(_) = self.current {
-            self.regex_allowed = false;
-        } else if let Token::Digit(_) = self.current {
-            self.regex_allowed = false;
-        } else {
-            self.regex_allowed = true;
-        }
+        self.regex_allowed = false;
         Ok(())
     }
 
     pub fn is_same_line(&self) -> bool {
-        self.last_loc.end.line == self.loc.start.line
+        self.last_loc_line == self.loc.start.line
     }
 
-    pub fn parse_statement_list(parser: &mut Parser) -> Result<Vec<Node>, String> {
+    pub fn parse_statement_list(&mut self) -> Result<Vec<Node>, String> {
         let mut ast = vec![];
         loop {
-            match &parser.current {
+            match &self.current {
                 Token::EOF => break,
-                Token::LF => parser.next()?,
                 Token::Comment(_) => {
-                    parser.comment = Some(parser.current.clone());
-                    parser.next()?;
+                    self.comment = Some(self.current.clone());
+                    self.next()?;
                 }
                 Token::Control(s) => match s.as_str() {
                     ";" => {
-                        parser.next()?;
+                        self.regex_allowed = true;
+                        self.next()?;
                     }
                     "}" => break,
-                    _ => ast.push(*parse_expression(parser, 0)?),
+                    "{" => {
+                        ast.push(*self.parse_block()?);
+                    }
+                    _ => ast.push(*parse_expression(self, 0)?),
                 },
                 Token::Case | Token::Default => {
                     break;
                 }
                 Token::Var | Token::Let | Token::Const => {
-                    ast.push(*build_let(parser)?);
+                    ast.push(*build_let(self)?);
                 }
                 Token::For => {
-                    ast.push(*build_for(parser)?);
+                    ast.push(*build_for(self)?);
                 }
                 Token::Function => {
-                    ast.push(*build_function(parser, true)?);
+                    ast.push(*build_function(self, true)?);
                 }
                 Token::If => {
-                    ast.push(*build_if(parser)?);
+                    ast.push(*build_if(self)?);
                 }
                 Token::While => {
-                    ast.push(*build_while(parser)?);
+                    ast.push(*build_while(self)?);
                 }
                 Token::Do => {
-                    ast.push(*build_do_while(parser)?);
+                    ast.push(*build_do_while(self)?);
                 }
                 Token::Try => {
-                    ast.push(*build_try(parser)?);
+                    ast.push(*build_try(self)?);
                 }
                 Token::Switch => {
-                    ast.push(*build_switch(parser)?);
+                    ast.push(*build_switch(self)?);
                 }
                 Token::Return => {
-                    parser.next()?;
-                    if !parser.is_same_line() || parser.current == Token::EOF {
+                    self.regex_allowed = true;
+                    self.next()?;
+                    if !self.is_same_line() || self.current == Token::EOF {
                         ast.push(ReturnStatement { argument: None })
-                    } else if is_ctrl_word(&parser.current, "}")
-                        || is_ctrl_word(&parser.current, ";")
-                    {
+                    } else if is_ctrl_word(&self.current, "}") || is_ctrl_word(&self.current, ";") {
                         ast.push(ReturnStatement { argument: None })
                     } else {
                         ast.push(ReturnStatement {
-                            argument: Some(parse_expression(parser, 0)?),
+                            argument: Some(parse_expression(self, 0)?),
                         })
                     }
                 }
                 Token::Break => {
-                    parser.next()?;
+                    self.next()?;
                     ast.push(BreakStatement { label: None })
                 }
                 Token::Continue => {
-                    parser.next()?;
+                    self.next()?;
                     ast.push(ContinueStatement { label: None })
                 }
                 Token::Throw => {
-                    parser.next()?;
-                    if !parser.is_same_line() || parser.current == Token::EOF {
+                    self.regex_allowed = true;
+                    self.next()?;
+                    if !self.is_same_line() || self.current == Token::EOF {
                         return Err("expression expected".to_string());
                     }
-                    if is_ctrl_word(&parser.current, "}") || is_ctrl_word(&parser.current, ";") {
+                    if is_ctrl_word(&self.current, "}") || is_ctrl_word(&self.current, ";") {
                         return Err("Unexpected token".to_string());
                     }
                     ast.push(ThrowStatement {
-                        argument: parse_expression(parser, 0)?,
+                        argument: parse_expression(self, 0)?,
                     })
                 }
                 _ => {
-                    ast.push(*parse_expression(parser, 0)?);
+                    ast.push(*parse_expression(self, 0)?);
                 }
             }
         }
         Ok(ast)
     }
 
-    pub fn parse_block(parser: &mut Parser) -> Result<Box<Node>, String> {
+    pub fn parse_block(&mut self) -> Result<Box<Node>, String> {
         let consequent: Box<Node>;
-        if !is_ctrl_word(&parser.current, "{") {
+        if !is_ctrl_word(&self.current, "{") {
             return Err("handle_block expect {".to_string());
         }
-        parser.next()?;
+        self.regex_allowed = true;
+        self.next()?;
         consequent = Box::new(BlockStatement {
-            body: Parser::parse_statement_list(parser)?,
+            body: Parser::parse_statement_list(self)?,
         });
-        expect(parser, "}")?;
+        expect(self, "}")?;
         Ok(consequent)
     }
 

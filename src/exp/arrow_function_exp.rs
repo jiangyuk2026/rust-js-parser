@@ -12,12 +12,14 @@ pub fn build_possible_arrow_function(parser: &mut Parser) -> Result<Box<Node>, S
     let mut params = vec![];
     let body: Box<Node>;
 
+    parser.regex_allowed = true;
     expect(parser, "(")?;
     parser.is_arrow_function = IsArrowFunction::Maybe;
     loop {
         if is_ctrl_word(&parser.current, ")") {
             break;
         } else if is_ctrl_word(&parser.current, ",") {
+            parser.regex_allowed = true;
             parser.next()?;
             continue;
         } else if is_ctrl_word(&parser.current, "{") {
@@ -61,6 +63,7 @@ pub fn build_possible_arrow_function(parser: &mut Parser) -> Result<Box<Node>, S
     if parser.is_arrow_function == IsArrowFunction::Impossible {
         return Err("syntax error".to_string());
     }
+    parser.regex_allowed = true;
     parser.next()?;
     if is_ctrl_word(&parser.current, "{") {
         body = Parser::parse_block(parser)?
@@ -80,6 +83,7 @@ fn build_possible_object(parser: &mut Parser) -> Result<Box<Node>, String> {
             break;
         }
         if is_ctrl_word(&parser.current, ",") {
+            parser.regex_allowed = true;
             parser.next()?;
             continue;
         }
@@ -109,6 +113,7 @@ fn build_possible_object(parser: &mut Parser) -> Result<Box<Node>, String> {
         }
         parser.next()?;
         if is_ctrl_word(&parser.current, ":") {
+            parser.regex_allowed = true;
             parser.next()?;
             if is_ctrl_word(&parser.current, "{") {
                 properties.push(ObjectProperty {
@@ -129,6 +134,7 @@ fn build_possible_object(parser: &mut Parser) -> Result<Box<Node>, String> {
             }
         } else if is_ctrl_word(&parser.current, "=") {
             parser.is_arrow_function = IsArrowFunction::Must;
+            parser.regex_allowed = true;
             parser.next()?;
             let default_value = parse_expression(parser, 2)?;
             properties.push(AssignmentPattern {
@@ -144,11 +150,13 @@ fn build_possible_object(parser: &mut Parser) -> Result<Box<Node>, String> {
 
 fn build_possible_array(parser: &mut Parser) -> Result<Box<Node>, String> {
     let mut elements: Vec<Node> = vec![];
+    parser.regex_allowed = true;
     parser.next()?;
     loop {
         if is_ctrl_word(&parser.current, "]") {
             break;
         } else if is_ctrl_word(&parser.current, ",") {
+            parser.regex_allowed = true;
             parser.next()?;
             continue;
         } else if is_ctrl_word(&parser.current, "{") {

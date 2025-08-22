@@ -45,6 +45,7 @@ pub fn handle_function_params(parser: &mut Parser) -> Result<Vec<Node>, String> 
         if is_ctrl_word(&parser.current, ")") {
             break;
         } else if is_ctrl_word(&parser.current, ",") {
+            parser.regex_allowed = true;
             parser.next()?;
             continue;
         } else if let Token::Variable(s) = &parser.current {
@@ -53,6 +54,7 @@ pub fn handle_function_params(parser: &mut Parser) -> Result<Vec<Node>, String> 
             };
             parser.next()?;
             if is_ctrl_word(&parser.current, "=") {
+                parser.regex_allowed = true;
                 parser.next()?;
                 let default_value = parse_expression(parser, 2)?;
                 params.push(AssignmentPattern {
@@ -86,6 +88,7 @@ fn handle_object(parser: &mut Parser) -> Result<Node, String> {
             let name = s.to_string();
             parser.next()?;
             if is_ctrl_word(&parser.current, ":") {
+                parser.regex_allowed = true;
                 parser.next()?;
                 if is_ctrl_word(&parser.current, "{") {
                     let right = handle_object(parser)?;
@@ -106,6 +109,7 @@ fn handle_object(parser: &mut Parser) -> Result<Node, String> {
                     return Err("handle_object expect { or [ after :".to_string());
                 }
             } else if is_ctrl_word(&parser.current, "=") {
+                parser.regex_allowed = true;
                 parser.next()?;
                 let right = parse_expression(parser, 2)?;
                 properties.push(ObjectProperty {
@@ -120,6 +124,7 @@ fn handle_object(parser: &mut Parser) -> Result<Node, String> {
                     }),
                 })
             } else if is_ctrl_word(&parser.current, ",") {
+                parser.regex_allowed = true;
                 parser.next()?;
                 properties.push(ObjectProperty {
                     key: Box::new(Identity {

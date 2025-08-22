@@ -7,8 +7,10 @@ use crate::token::Token;
 pub fn build_while(parser: &mut Parser) -> Result<Box<Node>, String> {
     let test: Box<Node>;
     let body: Box<Node>;
+
     expect_keyword(&parser.current, Token::While)?;
     parser.next()?;
+    parser.regex_allowed = true;
     expect(parser, "(")?;
     test = parse_expression(parser, 0)?;
     expect(parser, ")")?;
@@ -24,6 +26,7 @@ pub fn build_do_while(parser: &mut Parser) -> Result<Box<Node>, String> {
     body = Parser::parse_block(parser)?;
     expect_keyword(&parser.current, Token::While)?;
     parser.next()?;
+    parser.regex_allowed = true;
     expect(parser, "(")?;
     test = parse_expression(parser, 0)?;
     expect(parser, ")")?;

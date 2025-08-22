@@ -15,7 +15,7 @@ pub struct Loc {
 }
 
 pub struct Lex {
-    input: String,
+    chars: Vec<char>,
     pos: usize,
     line: usize,
     column: usize,
@@ -25,7 +25,7 @@ pub struct Lex {
 impl Lex {
     pub fn new(input: String) -> Self {
         Lex {
-            input,
+            chars: input.chars().collect(),
             pos: 0,
             line: 1,
             column: 1,
@@ -34,12 +34,11 @@ impl Lex {
     }
 
     pub fn next(&mut self) -> Result<(Token, Loc), String> {
-        let str = &self.input;
-        if self.pos > str.len() {
+        if self.pos > self.chars.len() {
             panic!("end of source");
         }
         loop {
-            let c = str.chars().nth(self.pos);
+            let c = self.chars.get(self.pos);
             match c {
                 Some(c) => match c {
                     ' ' => {
@@ -68,49 +67,48 @@ impl Lex {
         };
         let mut result;
         loop {
-            let c = str.chars().nth(self.pos);
+            let c = self.chars.get(self.pos);
+            if c.is_none() {
+                result = Token::EOF;
+                break;
+            }
+            let c = *c.unwrap();
             match c {
-                Some(c) => match c {
-                    '"' | '\'' => {
-                        result = self.read_string()?;
-                        break;
-                    }
-                    '/' => {
-                        result = self.read_divide_regex_comment()?;
-                        break;
-                    }
-                    '=' | '+' | '-' | '*' | '%' | '>' | '<' | '|' | '?' | ':' | '!' | '&' | '~' => {
-                        result = self.read_operation()?;
-                        break;
-                    }
-                    ';' | '(' | ')' | '{' | '}' | '.' | ',' | '[' | ']' => {
-                        self.pos += 1;
-                        self.column += 1;
-                        result = Token::Control(c.to_string());
-                        break;
-                    }
-                    '_' | 'a'..='z' | 'A'..='Z' => {
-                        result = self.read_word()?;
-                        break;
-                    }
-                    '0' => {
-                        result = self.read_binary_octal_hex_digit()?;
-                        break;
-                    }
-                    '1'..='9' => {
-                        result = self.read_digit()?;
-                        break;
-                    }
-                    '`' => {
-                        result = self.read_template_str()?;
-                        break;
-                    }
-                    _ => return Err(format!("Unrecognized character {}", c)),
-                },
-                None => {
-                    result = Token::EOF;
+                '"' | '\'' => {
+                    result = self.read_string()?;
                     break;
                 }
+                '/' => {
+                    result = self.read_divide_regex_comment()?;
+                    break;
+                }
+                '=' | '+' | '-' | '*' | '%' | '>' | '<' | '|' | '?' | ':' | '!' | '&' | '~' => {
+                    result = self.read_operation()?;
+                    break;
+                }
+                ';' | '(' | ')' | '{' | '}' | '.' | ',' | '[' | ']' => {
+                    self.pos += 1;
+                    self.column += 1;
+                    result = Token::Control(c.to_string());
+                    break;
+                }
+                '_' | '$' | 'a'..='z' | 'A'..='Z' => {
+                    result = self.read_word()?;
+                    break;
+                }
+                '0' => {
+                    result = self.read_binary_octal_hex_digit()?;
+                    break;
+                }
+                '1'..='9' => {
+                    result = self.read_digit()?;
+                    break;
+                }
+                '`' => {
+                    result = self.read_template_str()?;
+                    break;
+                }
+                _ => return Err(format!("Unrecognized character {}", c)),
             }
         }
         let end = Position {
@@ -121,19 +119,20 @@ impl Lex {
     }
 
     fn read_word(&mut self) -> Result<Token, String> {
-        let c = self.input.chars().nth(self.pos).unwrap();
+        let c = self.chars.get(self.pos).unwrap();
         let mut word = String::new();
-        word.push(c);
+        word.push(*c);
         loop {
             self.pos += 1;
             self.column += 1;
-            let d = self.input.chars().nth(self.pos);
+            let d = self.chars.get(self.pos);
+            if d.is_none() {
+                break;
+            }
+            let d = *d.unwrap();
             match d {
-                Some(d) => match d {
-                    '_' | 'a'..='z' | 'A'..='Z' | '0'..='9' => word.push(d),
-                    _ => break,
-                },
-                None => break,
+                '_' | '$' | 'a'..='z' | 'A'..='Z' | '0'..='9' => word.push(d),
+                _ => break,
             }
         }
         let d = match word.as_str() {
@@ -179,191 +178,186 @@ impl Lex {
     }
 
     fn read_string(&mut self) -> Result<Token, String> {
-        let s = self.input.chars().nth(self.pos).unwrap();
+        let s = *self.chars.get(self.pos).unwrap();
         let mut word = String::new();
         let mut escaped = false;
         loop {
             self.pos += 1;
             self.column += 1;
-            let c = self.input.chars().nth(self.pos);
+            let c = self.chars.get(self.pos);
+            if c.is_none() {
+                break;
+            }
+            let c = *c.unwrap();
             match c {
-                Some(c) => match c {
-                    '"' | '\'' => {
-                        if c == s {
-                            if escaped {
-                                escaped = false;
-                            } else {
-                                self.pos += 1;
-                                self.column += 1;
-                                break;
-                            }
-                        }
-                        word.push(c);
-                    }
-                    'r' | 'n' | 't' => {
+                '"' | '\'' => {
+                    if c == s {
                         if escaped {
                             escaped = false;
-                            if c == 'r' {
-                                word.push('\r');
-                            }
-                            if c == 'n' {
-                                word.push('\n');
-                            }
-                            if c == 't' {
-                                word.push('\t');
-                            }
                         } else {
-                            word.push(c);
+                            self.pos += 1;
+                            self.column += 1;
+                            break;
                         }
                     }
-                    '\n' => {
-                        if escaped {
-                            escaped = false;
-                            word.push(c);
-                        } else {
-                            return Err(format!(
-                                "string format error, unsupported \\n, line: {}",
-                                self.line
-                            ));
-                        }
-                    }
-                    '\\' => {
-                        if escaped {
-                            escaped = false;
-                            word.push(c);
-                        } else {
-                            escaped = true;
-                        }
-                    }
-                    _ => {
-                        word.push(c);
+                    word.push(c);
+                }
+                'r' | 'n' | 't' => {
+                    if escaped {
                         escaped = false;
+                        if c == 'r' {
+                            word.push('\r');
+                        }
+                        if c == 'n' {
+                            word.push('\n');
+                        }
+                        if c == 't' {
+                            word.push('\t');
+                        }
+                    } else {
+                        word.push(c);
                     }
-                },
-                None => break,
+                }
+                '\n' => {
+                    if escaped {
+                        escaped = false;
+                        word.push(c);
+                    } else {
+                        return Err(format!(
+                            "string format error, unsupported \\n, line: {}",
+                            self.line
+                        ));
+                    }
+                }
+                '\\' => {
+                    if escaped {
+                        escaped = false;
+                        word.push(c);
+                    } else {
+                        escaped = true;
+                    }
+                }
+                _ => {
+                    word.push(c);
+                    escaped = false;
+                }
             }
         }
         Ok(Token::String(word))
     }
 
     fn read_divide_regex_comment(&mut self) -> Result<Token, String> {
-        let c = self.input.chars().nth(self.pos).unwrap();
+        let c = *self.chars.get(self.pos).unwrap();
         let mut word = String::new();
         word.push(c);
         loop {
             self.pos += 1;
             self.column += 1;
-            let d = self.input.chars().nth(self.pos);
+            let d = self.chars.get(self.pos);
+            if d.is_none() {
+                break;
+            }
+            let d = *d.unwrap();
             match d {
-                Some(d) => match d {
-                    '/' => {
-                        return self.read_comment();
+                '/' => {
+                    return self.read_comment();
+                }
+                '*' => {
+                    return self.read_multiline_comment();
+                }
+                '=' => {
+                    if self.regex_allowed {
+                        return self.read_regex();
                     }
-                    '*' => {
-                        return self.read_multiline_comment();
+                    word.push(d);
+                }
+                _ => {
+                    if self.regex_allowed {
+                        return self.read_regex();
                     }
-                    '=' => {
-                        if self.regex_allowed {
-                            return self.read_regex();
-                        }
-                        word.push(d);
-                    }
-                    _ => {
-                        if self.regex_allowed {
-                            return self.read_regex();
-                        }
-                        break;
-                    }
-                },
-                None => break,
+                    break;
+                }
             }
         }
         Ok(Token::Control(word))
     }
 
     fn read_operation(&mut self) -> Result<Token, String> {
-        let c = self.input.chars().nth(self.pos).unwrap();
+        let c = *self.chars.get(self.pos).unwrap();
         let mut word = String::new();
         word.push(c);
         loop {
             self.pos += 1;
             self.column += 1;
-            let d = self.input.chars().nth(self.pos);
+            let d = self.chars.get(self.pos);
+            if d.is_none() {
+                break;
+            }
+            let d = *d.unwrap();
             match d {
-                Some(d) => match d {
-                    '=' | '+' | '-' | '*' | '/' | '%' | '>' | '<' | '|' | '?' | ':' | '&' => {
-                        word.push(d);
-                    }
-                    _ => {
-                        break;
-                    }
-                },
-                None => break,
+                '=' | '+' | '-' | '*' | '/' | '%' | '>' | '<' | '|' | '?' | ':' | '&' => {
+                    word.push(d);
+                }
+                _ => {
+                    break;
+                }
             }
         }
-
         Ok(Token::Control(word))
     }
 
     fn read_regex(&mut self) -> Result<Token, String> {
         let mut escaped = false;
         let mut flags_start = false;
-        let c = self.input.chars().nth(self.pos).unwrap();
-        if c == '/' {
-            return Err("expect regex, but find //".to_string());
-        }
         let mut word = String::new();
         let mut flags = String::new();
-        word.push(c);
         loop {
-            self.pos += 1;
-            self.column += 1;
-            let d = self.input.chars().nth(self.pos);
+            let d = self.chars.get(self.pos);
             if d.is_none() {
                 break;
             }
-            let d = d.unwrap();
+            let d = *d.unwrap();
             if !escaped && d == '\\' {
                 escaped = true;
                 word.push('\\');
-                continue;
-            }
-            if escaped {
+            } else if escaped {
                 escaped = false;
                 word.push(d);
-                continue;
-            }
-            match d {
-                '/' => {
-                    if flags_start {
-                        return Err("expect regex flags, but found /".to_string());
-                    }
-                    flags_start = true
-                }
-                '_' | 'a'..='z' | '0'..='9' => match d {
-                    'i' | 'g' | 'm' | 's' | 'u' | 'y' => {
+            } else {
+                match d {
+                    '/' => {
                         if flags_start {
-                            if flags.contains(d) {
-                                return Err("repeated regex flags".to_string());
-                            }
-                            flags.push(d);
+                            return Err("expect regex flags, but found /".to_string());
                         }
+                        flags_start = true
                     }
+                    '_' | 'a'..='z' | '0'..='9' => match d {
+                        'i' | 'g' | 'm' | 's' | 'u' | 'y' => {
+                            if flags_start {
+                                if flags.contains(d) {
+                                    return Err("repeated regex flags".to_string());
+                                }
+                                flags.push(d);
+                            }
+                        }
+                        _ => {
+                            if flags_start {
+                                return Err("regex expect newline or semicolon".to_string());
+                            } else {
+                                word.push(d);
+                            }
+                        }
+                    },
                     _ => {
                         if flags_start {
-                            return Err("regex expect newline or semicolon".to_string());
-                        } else {
-                            word.push(d);
+                            break;
                         }
+                        word.push(d);
                     }
-                },
-                _ => {
-                    if flags_start {
-                        break;
-                    }
-                    word.push(d);
                 }
             }
+            self.pos += 1;
+            self.column += 1;
         }
         if !flags_start {
             panic!("regex syntax error");
@@ -376,18 +370,17 @@ impl Lex {
         loop {
             self.pos += 1;
             self.column += 1;
-            let c = self.input.chars().nth(self.pos);
-            match c {
-                Some(c) => match c {
-                    '\r' | '\n' => {
-                        break;
-                    }
-                    s => {
-                        word.push(s);
-                    }
-                },
-                None => {
+            let d = self.chars.get(self.pos);
+            if d.is_none() {
+                break;
+            }
+            let d = *d.unwrap();
+            match d {
+                '\r' | '\n' => {
                     break;
+                }
+                s => {
+                    word.push(s);
                 }
             }
         }
@@ -400,37 +393,36 @@ impl Lex {
         loop {
             self.pos += 1;
             self.column += 1;
-            let c = self.input.chars().nth(self.pos);
-            match c {
-                Some(c) => match c {
-                    '*' => {
-                        if end_star_flag {
-                            word.push('*');
-                        }
-                        end_star_flag = true;
+            let d = self.chars.get(self.pos);
+            if d.is_none() {
+                break;
+            }
+            let d = *d.unwrap();
+            match d {
+                '*' => {
+                    if end_star_flag {
+                        word.push('*');
                     }
-                    '/' => {
-                        if end_star_flag {
-                            self.pos += 1;
-                            self.column += 1;
-                            break;
-                        }
-                        word.push('/');
+                    end_star_flag = true;
+                }
+                '/' => {
+                    if end_star_flag {
+                        self.pos += 1;
+                        self.column += 1;
+                        break;
                     }
-                    s => {
-                        if s == '\n' {
-                            self.line += 1;
-                            self.column = 0;
-                        }
-                        if end_star_flag {
-                            word.push('*');
-                            end_star_flag = false;
-                        }
-                        word.push(s);
+                    word.push('/');
+                }
+                s => {
+                    if s == '\n' {
+                        self.line += 1;
+                        self.column = 0;
                     }
-                },
-                None => {
-                    break;
+                    if end_star_flag {
+                        word.push('*');
+                        end_star_flag = false;
+                    }
+                    word.push(s);
                 }
             }
         }
@@ -438,32 +430,33 @@ impl Lex {
     }
 
     fn read_digit(&mut self) -> Result<Token, String> {
-        let c = self.input.chars().nth(self.pos).unwrap();
+        let c = *self.chars.get(self.pos).unwrap();
         let mut word = String::new();
         let mut exponential = false;
         word.push(c);
         loop {
             self.pos += 1;
             self.column += 1;
-            let c = self.input.chars().nth(self.pos);
-            match c {
-                Some(c) => match c {
-                    '_' => {
-                        word.push(c);
-                    }
-                    '0'..='9' => {
-                        word.push(c);
-                        exponential = false;
-                    }
-                    'e' => {
-                        exponential = true;
-                        word.push(c);
-                    }
-                    _ => {
-                        break;
-                    }
-                },
-                None => break,
+            let d = self.chars.get(self.pos);
+            if d.is_none() {
+                break;
+            }
+            let d = *d.unwrap();
+            match d {
+                '_' => {
+                    word.push(d);
+                }
+                '0'..='9' => {
+                    word.push(d);
+                    exponential = false;
+                }
+                'e' => {
+                    exponential = true;
+                    word.push(d);
+                }
+                _ => {
+                    break;
+                }
             }
         }
         if exponential {
@@ -473,59 +466,80 @@ impl Lex {
     }
 
     fn read_binary_octal_hex_digit(&mut self) -> Result<Token, String> {
-        let c = self.input.chars().nth(self.pos).unwrap();
+        let c = *self.chars.get(self.pos).unwrap();
         let mut word = String::new();
         let mut flag = "".to_string();
+        let mut underscore_allowed = false;
+        let mut underscore_ended = false;
         word.push(c);
         loop {
             self.pos += 1;
             self.column += 1;
-            let c = self.input.chars().nth(self.pos);
-            if c.is_none() {
+            let d = self.chars.get(self.pos);
+            if d.is_none() {
                 break;
             }
-            if c.unwrap().is_ascii_whitespace() {
+            let d = *d.unwrap();
+            if d.is_ascii_whitespace() {
                 break;
             }
-            match c {
-                Some(c) => match c {
-                    'o' | 'b' | 'x' => {
-                        if flag == "" {
-                            word.push(c);
-                            flag = c.to_string();
-                        } else {
-                            return Err("digit syntax error".to_string());
-                        }
-                    }
-                    '_' | '0'..='9' | 'a'..='f' | 'A'..='F' => {
-                        if flag == "b" {
-                            match c {
-                                '_' | '0'..='1' => {
-                                    word.push(c);
-                                }
-                                _ => {
-                                    return Err("digit syntax error".to_string());
-                                }
-                            }
-                        } else if flag == "o" {
-                            match c {
-                                '_' | '0'..='7' => {
-                                    word.push(c);
-                                }
-                                _ => {
-                                    return Err("digit syntax error".to_string());
-                                }
-                            }
-                        } else {
-                            word.push(c);
-                        }
-                    }
-                    _ => {
-                        break;
-                    }
-                },
-                None => break,
+            if d == '_' {
+                if underscore_allowed {
+                    word.push('_');
+                    underscore_allowed = false;
+                    underscore_ended = true;
+                    continue;
+                } else {
+                    return Err("digit _ error".to_string());
+                }
             }
+            if flag == "b" {
+                if ('0'..='1').contains(&d) {
+                    word.push(d);
+                    underscore_allowed = true;
+                    underscore_ended = false;
+                    continue;
+                } else {
+                    break;
+                }
+            }
+            if flag == "o" {
+                if ('0'..='7').contains(&d) {
+                    word.push(d);
+                    underscore_allowed = true;
+                    underscore_ended = false;
+                    continue;
+                } else {
+                    break;
+                }
+            }
+            if flag == "x" {
+                if ('0'..='9').contains(&d) || ('a'..='f').contains(&d) || ('A'..='F').contains(&d)
+                {
+                    word.push(d);
+                    underscore_allowed = true;
+                    underscore_ended = false;
+                    continue;
+                } else {
+                    break;
+                }
+            }
+            match d {
+                'o' | 'b' | 'x' => {
+                    if flag == "" {
+                        word.push(d);
+                        flag = d.to_string();
+                    } else {
+                        return Err("digit syntax error".to_string());
+                    }
+                }
+                _ => {
+                    break;
+                }
+            }
+        }
+        if underscore_ended {
+            return Err("digit _ error".to_string());
         }
         Ok(Token::Digit(word))
     }
@@ -535,19 +549,20 @@ impl Lex {
         loop {
             self.pos += 1;
             self.column += 1;
-            let c = self.input.chars().nth(self.pos);
-            match c {
-                Some(c) => match c {
-                    '`' => {
-                        self.pos += 1;
-                        self.column += 1;
-                        break;
-                    }
-                    _ => {
-                        word.push(c);
-                    }
-                },
-                None => panic!("template string error"),
+            let d = self.chars.get(self.pos);
+            if d.is_none() {
+                break;
+            }
+            let d = *d.unwrap();
+            match d {
+                '`' => {
+                    self.pos += 1;
+                    self.column += 1;
+                    break;
+                }
+                _ => {
+                    word.push(d);
+                }
             }
         }
         Ok(Token::TemplateStr(word))

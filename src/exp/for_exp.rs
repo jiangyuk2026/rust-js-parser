@@ -17,11 +17,15 @@ pub fn build_for(parser: &mut Parser) -> Result<Box<Node>, String> {
 
     parser.in_for_init = true;
     parser.is_for_in = IsForIn::Maybe;
-    if parser.current == Token::Let {
+    if parser.current == Token::Let
+        || parser.current == Token::Var
+        || parser.current == Token::Const
+    {
         init = build_let(parser)?;
         if parser.current == Token::In {
             parser.is_for_in = IsForIn::Must;
             is_single_variable_without_value(&*init)?;
+            parser.regex_allowed = true;
             parser.next()?;
         } else {
             parser.is_for_in = IsForIn::Impossible;
@@ -32,6 +36,7 @@ pub fn build_for(parser: &mut Parser) -> Result<Box<Node>, String> {
             if !matches!(*init, Identity { .. }) {
                 return Err("for in: syntax error".to_string());
             }
+            parser.regex_allowed = true;
             parser.next()?;
             parser.is_for_in = IsForIn::Must;
         } else {
@@ -49,6 +54,7 @@ pub fn build_for(parser: &mut Parser) -> Result<Box<Node>, String> {
 
     if parser.is_for_in == IsForIn::Must {
         let right = parse_expression(parser, 0)?;
+        parser.regex_allowed = true;
         expect(parser, ")")?;
         let body = parser.build_maybe_empty_body()?;
         return ok_box(ForInStatement {
@@ -57,20 +63,21 @@ pub fn build_for(parser: &mut Parser) -> Result<Box<Node>, String> {
             body,
         });
     }
-
+    parser.regex_allowed = true;
     expect(parser, ";")?;
     if is_ctrl_word(&parser.current, ";") {
         test = Box::new(EmptyStatement {});
     } else {
         test = parse_expression(parser, 0)?;
     }
-
+    parser.regex_allowed = true;
     expect(parser, ";")?;
     if is_ctrl_word(&parser.current, ")") {
         update = Box::new(EmptyStatement {});
     } else {
         update = parse_expression(parser, 0)?;
     }
+    parser.regex_allowed = true;
     expect(parser, ")")?;
     ok_box(ForStatement {
         init,

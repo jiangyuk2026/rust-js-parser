@@ -10,6 +10,7 @@ pub fn build_switch(parser: &mut Parser) -> Result<Box<Node>, String> {
 
     expect_keyword(&parser.current, Token::Switch)?;
     parser.next()?;
+    parser.regex_allowed = true;
     expect(parser, "(")?;
     discriminant = parse_expression(parser, 0)?;
     expect(parser, ")")?;
@@ -21,6 +22,7 @@ pub fn build_switch(parser: &mut Parser) -> Result<Box<Node>, String> {
             let mut consequent: Vec<Node>;
 
             if parser.current == Token::Case {
+                parser.regex_allowed = true;
                 parser.next()?;
                 test = Some(parse_expression(parser, 0)?);
             } else {
