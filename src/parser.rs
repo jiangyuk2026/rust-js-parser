@@ -13,7 +13,6 @@ use crate::node::Node::{
     ThrowStatement,
 };
 use crate::token::Token;
-use std::mem::swap;
 
 #[derive(PartialEq, Debug)]
 pub enum IsArrowFunction {
@@ -36,9 +35,11 @@ pub struct Parser {
     pub in_for_init: bool,
     pub list: Vec<Token>,
     pub loc: Loc,
-    pub last_loc: Loc,
+    pub last_loc_line: usize,
     comment: Option<Token>,
-    regex_allowed: bool,
+    pub regex_allowed: bool,
+    pub is_identity_catch: bool,
+    pub is_identity_finally: bool,
     lex: Lex,
 }
 
@@ -58,12 +59,14 @@ impl Parser {
             comment: None,
             current: current.clone(),
             loc: loc.clone(),
-            last_loc: loc,
+            last_loc_line: 0,
             is_arrow_function: IsArrowFunction::Maybe,
             in_for_init: false,
             is_for_in: IsForIn::Maybe,
             list: vec![current],
             regex_allowed: true,
+            is_identity_catch: false,
+            is_identity_finally: false,
             lex,
         };
 
@@ -72,26 +75,23 @@ impl Parser {
 
     pub fn next(&mut self) -> Result<(), String> {
         self.lex.regex_allowed = self.regex_allowed;
+        self.last_loc_line = self.loc.end.line;
         loop {
-            (self.current, self.last_loc) = self.lex.next()?;
+            (self.current, self.loc) = self.lex.next()?;
+            /*if self.last_loc_line> 3120 {
+                println!("token: {}", self.current);
+            }*/
             // self.list.insert(0, self.current.clone());
-            swap(&mut self.loc, &mut self.last_loc);
             if !matches!(self.current, Token::Comment(_)) {
                 break;
             }
         }
-        if let Token::Variable(_) = self.current {
-            self.regex_allowed = false;
-        } else if let Token::Digit(_) = self.current {
-            self.regex_allowed = false;
-        } else {
-            self.regex_allowed = true;
-        }
+        self.regex_allowed = false;
         Ok(())
     }
 
     pub fn is_same_line(&self) -> bool {
-        self.last_loc.end.line == self.loc.start.line
+        self.last_loc_line == self.loc.start.line
     }
 
     pub fn parse_statement_list(parser: &mut Parser) -> Result<Vec<Node>, String> {
@@ -99,13 +99,13 @@ impl Parser {
         loop {
             match &parser.current {
                 Token::EOF => break,
-                Token::LF => parser.next()?,
                 Token::Comment(_) => {
                     parser.comment = Some(parser.current.clone());
                     parser.next()?;
                 }
                 Token::Control(s) => match s.as_str() {
                     ";" => {
+                        parser.regex_allowed = true;
                         parser.next()?;
                     }
                     "}" => break,
@@ -139,6 +139,7 @@ impl Parser {
                     ast.push(*build_switch(parser)?);
                 }
                 Token::Return => {
+                    parser.regex_allowed = true;
                     parser.next()?;
                     if !parser.is_same_line() || parser.current == Token::EOF {
                         ast.push(ReturnStatement { argument: None })
@@ -161,6 +162,7 @@ impl Parser {
                     ast.push(ContinueStatement { label: None })
                 }
                 Token::Throw => {
+                    parser.regex_allowed = true;
                     parser.next()?;
                     if !parser.is_same_line() || parser.current == Token::EOF {
                         return Err("expression expected".to_string());
@@ -185,6 +187,7 @@ impl Parser {
         if !is_ctrl_word(&parser.current, "{") {
             return Err("handle_block expect {".to_string());
         }
+        parser.regex_allowed = true;
         parser.next()?;
         consequent = Box::new(BlockStatement {
             body: Parser::parse_statement_list(parser)?,

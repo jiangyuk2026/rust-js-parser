@@ -11,6 +11,7 @@ pub fn build_array(parser: &mut Parser) -> Result<Box<Node>, String> {
         if is_ctrl_word(&parser.current, "]") {
             break;
         } else if is_ctrl_word(&parser.current, ",") {
+            parser.regex_allowed = true;
             parser.next()?;
             continue;
         }

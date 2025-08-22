@@ -19,12 +19,14 @@ pub fn build_if(parser: &mut Parser) -> Result<Box<Node>, String> {
         consequent = Parser::parse_block(parser)?;
     } else if is_ctrl_word(&parser.current, ";") {
         consequent = Box::new(EmptyStatement {});
+        parser.regex_allowed = true;
         parser.next()?;
     } else {
         return Err("if syntax error".to_string());
     }
 
     if parser.current == Token::Else {
+        parser.regex_allowed = true;
         parser.next()?;
         if parser.current == Token::If {
             alternate = Some(build_if(parser)?);

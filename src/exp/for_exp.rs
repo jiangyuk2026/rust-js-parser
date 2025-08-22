@@ -22,6 +22,7 @@ pub fn build_for(parser: &mut Parser) -> Result<Box<Node>, String> {
         if parser.current == Token::In {
             parser.is_for_in = IsForIn::Must;
             is_single_variable_without_value(&*init)?;
+            parser.regex_allowed = true;
             parser.next()?;
         } else {
             parser.is_for_in = IsForIn::Impossible;
@@ -32,6 +33,7 @@ pub fn build_for(parser: &mut Parser) -> Result<Box<Node>, String> {
             if !matches!(*init, Identity { .. }) {
                 return Err("for in: syntax error".to_string());
             }
+            parser.regex_allowed = true;
             parser.next()?;
             parser.is_for_in = IsForIn::Must;
         } else {

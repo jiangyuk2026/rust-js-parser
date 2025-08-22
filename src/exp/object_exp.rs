@@ -16,6 +16,7 @@ pub fn build_object(parser: &mut Parser) -> Result<Box<Node>, String> {
         if is_ctrl_word(&parser.current, "}") {
             break;
         } else if is_ctrl_word(&parser.current, ",") {
+            parser.regex_allowed = true;
             parser.next()?;
             continue;
         }
@@ -56,6 +57,7 @@ pub fn build_object(parser: &mut Parser) -> Result<Box<Node>, String> {
                 body,
             })
         } else if is_ctrl_word(&parser.current, ":") {
+            parser.regex_allowed = true;
             parser.next()?;
             properties.push(ObjectProperty {
                 key: Box::new(key),

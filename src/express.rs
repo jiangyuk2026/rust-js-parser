@@ -11,11 +11,10 @@ use crate::parser::Parser;
 use crate::token::Token;
 
 pub fn parse_expression(parser: &mut Parser, min_level: u8) -> Result<Box<Node>, String> {
-    if parser.current == Token::Function {
-        return Ok(build_function(parser, false)?);
-    }
     let mut left: Box<Node>;
-    if let Token::Control(s) = &parser.current {
+    if parser.current == Token::Function {
+        left = build_function(parser, false)?;
+    } else if let Token::Control(s) = &parser.current {
         let operator = s.to_string();
         let l = get_level(&parser.current)?;
         match s.as_str() {
@@ -28,6 +27,7 @@ pub fn parse_expression(parser: &mut Parser, min_level: u8) -> Result<Box<Node>,
                 });
             }
             "+" | "-" | "!" | "typeof" | "~" => {
+                parser.regex_allowed = true;
                 parser.next()?;
                 left = Box::new(UnaryExpression {
                     operator,
@@ -45,6 +45,7 @@ pub fn parse_expression(parser: &mut Parser, min_level: u8) -> Result<Box<Node>,
             _ => return Err("expect control,".to_string()),
         }
     } else if parser.current == Token::Typeof {
+        parser.regex_allowed = true;
         parser.next()?;
         left = Box::new(UnaryExpression {
             argument: parse_expression(parser, 14)?,
@@ -52,6 +53,7 @@ pub fn parse_expression(parser: &mut Parser, min_level: u8) -> Result<Box<Node>,
             prefix: true,
         })
     } else if parser.current == Token::Delete {
+        parser.regex_allowed = true;
         parser.next()?;
         left = Box::new(UnaryExpression {
             argument: parse_expression(parser, 14)?,
@@ -107,6 +109,11 @@ pub fn parse_expression(parser: &mut Parser, min_level: u8) -> Result<Box<Node>,
             expect(parser, ")")?;
         }
         left = Box::new(NewExpression { callee, arguments });
+    } else if parser.current == Token::Catch && parser.is_identity_catch {
+        left = Box::new(Identity {
+            name: "catch".to_string(),
+        });
+        parser.next()?;
     } else if let Token::Variable(s) = &parser.current {
         left = Box::new(Identity {
             name: s.to_string(),
@@ -128,7 +135,7 @@ pub fn parse_expression(parser: &mut Parser, min_level: u8) -> Result<Box<Node>,
             &parser.current
         ));
     }
-
+    parser.is_identity_catch = false;
     loop {
         let operator = parser.current.clone();
         match &operator {
@@ -166,6 +173,7 @@ pub fn parse_expression(parser: &mut Parser, min_level: u8) -> Result<Box<Node>,
         match &operator {
             Token::Control(s) => match s.as_str() {
                 "," => {
+                    parser.regex_allowed = true;
                     parser.next()?;
                     let right = parse_expression(parser, l + 1)?;
                     if let SequenceExpression { expressions, .. } = *left {
@@ -184,6 +192,7 @@ pub fn parse_expression(parser: &mut Parser, min_level: u8) -> Result<Box<Node>,
                     }
                 }
                 "=" | "+=" | "-=" | "*=" | "/=" | "%=" | ">>=" | "<<=" | "|=" | "&=" => {
+                    parser.regex_allowed = true;
                     parser.next()?;
                     let right = parse_expression(parser, l)?;
                     left = Box::new(Node::AssignmentExpression {
@@ -193,6 +202,7 @@ pub fn parse_expression(parser: &mut Parser, min_level: u8) -> Result<Box<Node>,
                     })
                 }
                 "=>" => {
+                    parser.regex_allowed = true;
                     parser.next()?;
                     let right;
                     if is_ctrl_word(&parser.current, "{") {
@@ -207,6 +217,7 @@ pub fn parse_expression(parser: &mut Parser, min_level: u8) -> Result<Box<Node>,
                 }
                 "." => {
                     parser.next()?;
+                    parser.is_identity_catch = true;
                     let right = parse_expression(parser, l + 1)?;
                     left = Box::new(Node::MemberExpression {
                         computed: false,
@@ -216,6 +227,7 @@ pub fn parse_expression(parser: &mut Parser, min_level: u8) -> Result<Box<Node>,
                 }
                 "+" | "-" | "*" | "/" | "%" | ">" | "<" | ">=" | "<=" | "==" | "===" | "!="
                 | "&" | "|" | "<<" | ">>" | "!==" => {
+                    parser.regex_allowed = true;
                     parser.next()?;
                     let right = parse_expression(parser, l + 1)?;
                     left = Box::new(Node::BinaryExpression {
@@ -226,6 +238,7 @@ pub fn parse_expression(parser: &mut Parser, min_level: u8) -> Result<Box<Node>,
                     })
                 }
                 "&&" | "||" => {
+                    parser.regex_allowed = true;
                     parser.next()?;
                     let right = parse_expression(parser, l + 1)?;
                     left = Box::new(Node::LogicalExpression {
@@ -243,6 +256,7 @@ pub fn parse_expression(parser: &mut Parser, min_level: u8) -> Result<Box<Node>,
                     });
                 }
                 "?" => {
+                    parser.regex_allowed = true;
                     parser.next()?;
                     let consequent = parse_expression(parser, l)?;
                     expect(parser, ":")?;
@@ -254,6 +268,7 @@ pub fn parse_expression(parser: &mut Parser, min_level: u8) -> Result<Box<Node>,
                     });
                 }
                 "(" => {
+                    parser.regex_allowed = true;
                     parser.next()?;
                     let mut arguments: Vec<Node> = vec![];
                     loop {
@@ -262,7 +277,7 @@ pub fn parse_expression(parser: &mut Parser, min_level: u8) -> Result<Box<Node>,
                             parser.next()?;
                             break;
                         }
-                        let express = parse_expression(parser, 1)?;
+                        let express = parse_expression(parser, 2)?;
                         arguments.push(*express);
                         let current = &parser.current.clone();
                         if is_ctrl_word(&current, ",") {
@@ -279,6 +294,7 @@ pub fn parse_expression(parser: &mut Parser, min_level: u8) -> Result<Box<Node>,
                     });
                 }
                 "[" => {
+                    parser.regex_allowed = true;
                     parser.next()?;
                     let right = parse_expression(parser, 0)?;
                     expect(parser, "]")?;
@@ -298,6 +314,7 @@ pub fn parse_expression(parser: &mut Parser, min_level: u8) -> Result<Box<Node>,
                 } else {
                     "in"
                 };
+                parser.regex_allowed = true;
                 parser.next()?;
                 let right = parse_expression(parser, l + 1)?;
                 left = Box::new(Node::BinaryExpression {

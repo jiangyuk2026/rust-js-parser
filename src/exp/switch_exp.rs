@@ -21,6 +21,7 @@ pub fn build_switch(parser: &mut Parser) -> Result<Box<Node>, String> {
             let mut consequent: Vec<Node>;
 
             if parser.current == Token::Case {
+                parser.regex_allowed = true;
                 parser.next()?;
                 test = Some(parse_expression(parser, 0)?);
             } else {

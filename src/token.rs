@@ -64,6 +64,7 @@ impl Display for Token {
             Token::Digit(s) => {
                 write!(f, "{}", s)
             }
+            Token::Comment(_) => write!(f, "Comment"),
             Token::String(_) => write!(f, "String"),
             Token::Var => write!(f, "Var"),
             Token::Let => write!(f, "Let"),

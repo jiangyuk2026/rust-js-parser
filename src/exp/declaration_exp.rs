@@ -14,11 +14,9 @@ pub fn build_let(parser: &mut Parser) -> Result<Box<Node>, String> {
         match c2 {
             Token::Control(s) => match s.as_str() {
                 "," => {
+                    parser.regex_allowed = true;
                     parser.next()?;
                     declarations.push(*build_declarator(parser)?);
-                }
-                "\r" | "\n" => {
-                    parser.next()?;
                 }
                 _ => break,
             },
@@ -42,6 +40,7 @@ fn build_declarator(parser: &mut Parser) -> Result<Box<Node>, String> {
                 init: None,
             }));
         }
+        parser.regex_allowed = true;
         parser.next()?;
         return Ok(Box::new(VariableDeclarator {
             id,
