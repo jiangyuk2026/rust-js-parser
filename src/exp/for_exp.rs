@@ -50,7 +50,7 @@ pub fn build_for(parser: &mut Parser) -> Result<Box<Node>, String> {
     if parser.is_for_in == IsForIn::Must {
         let right = parse_expression(parser, 0)?;
         expect(parser, ")")?;
-        let body = build_for_body(parser)?;
+        let body = parser.build_maybe_empty_body()?;
         return ok_box(ForInStatement {
             left: init,
             right,
@@ -76,7 +76,7 @@ pub fn build_for(parser: &mut Parser) -> Result<Box<Node>, String> {
         init,
         test,
         update,
-        body: build_for_body(parser)?,
+        body: parser.build_maybe_empty_body()?,
     })
 }
 
@@ -94,19 +94,6 @@ fn is_single_variable_without_value(node: &Node) -> Result<bool, String> {
         panic!("unhandled variable declaration");
     }
     Ok(true)
-}
-
-fn build_for_body(parser: &mut Parser) -> Result<Box<Node>, String> {
-    let body: Box<Node>;
-    if is_ctrl_word(&parser.current, "{") {
-        body = Parser::parse_block(parser)?;
-    } else if is_ctrl_word(&parser.current, ";") {
-        body = Box::new(EmptyStatement {});
-        parser.next()?;
-    } else {
-        return Err("for body error".to_string());
-    }
-    Ok(body)
 }
 
 #[cfg(test)]

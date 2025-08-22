@@ -4,11 +4,13 @@ use crate::exp::function_exp::build_function;
 use crate::exp::if_exp::build_if;
 use crate::exp::switch_exp::build_switch;
 use crate::exp::try_exp::build_try;
+use crate::exp::while_exp::{build_do_while, build_while};
 use crate::express::{expect, is_ctrl_word, parse_expression};
 use crate::lex::{Lex, Loc};
 use crate::node::Node;
 use crate::node::Node::{
-    BlockStatement, BreakStatement, ContinueStatement, ReturnStatement, ThrowStatement,
+    BlockStatement, BreakStatement, ContinueStatement, EmptyStatement, ReturnStatement,
+    ThrowStatement,
 };
 use crate::token::Token;
 use std::mem::swap;
@@ -72,7 +74,7 @@ impl Parser {
         self.lex.regex_allowed = self.regex_allowed;
         loop {
             (self.current, self.last_loc) = self.lex.next()?;
-            self.list.insert(0, self.current.clone());
+            // self.list.insert(0, self.current.clone());
             swap(&mut self.loc, &mut self.last_loc);
             if !matches!(self.current, Token::Comment(_)) {
                 break;
@@ -123,6 +125,12 @@ impl Parser {
                 }
                 Token::If => {
                     ast.push(*build_if(parser)?);
+                }
+                Token::While => {
+                    ast.push(*build_while(parser)?);
+                }
+                Token::Do => {
+                    ast.push(*build_do_while(parser)?);
                 }
                 Token::Try => {
                     ast.push(*build_try(parser)?);
@@ -183,6 +191,19 @@ impl Parser {
         });
         expect(parser, "}")?;
         Ok(consequent)
+    }
+
+    pub fn build_maybe_empty_body(&mut self) -> Result<Box<Node>, String> {
+        let body: Box<Node>;
+        if is_ctrl_word(&self.current, "{") {
+            body = Parser::parse_block(self)?;
+        } else if is_ctrl_word(&self.current, ";") {
+            body = Box::new(EmptyStatement {});
+            self.next()?;
+        } else {
+            return Err("for body error".to_string());
+        }
+        Ok(body)
     }
 
     pub fn parse(&mut self) -> Result<Vec<Node>, String> {

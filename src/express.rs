@@ -19,7 +19,7 @@ pub fn parse_expression(parser: &mut Parser, min_level: u8) -> Result<Box<Node>,
         let operator = s.to_string();
         let l = get_level(&parser.current)?;
         match s.as_str() {
-            "++" => {
+            "++" | "--" => {
                 parser.next()?;
                 left = Box::new(Node::UpdateExpression {
                     operator,
@@ -27,7 +27,7 @@ pub fn parse_expression(parser: &mut Parser, min_level: u8) -> Result<Box<Node>,
                     argument: parse_expression(parser, l + 1)?,
                 });
             }
-            "+" | "-" | "!" | "typeof" => {
+            "+" | "-" | "!" | "typeof" | "~" => {
                 parser.next()?;
                 left = Box::new(UnaryExpression {
                     operator,
@@ -49,6 +49,13 @@ pub fn parse_expression(parser: &mut Parser, min_level: u8) -> Result<Box<Node>,
         left = Box::new(UnaryExpression {
             argument: parse_expression(parser, 14)?,
             operator: "typeof".to_string(),
+            prefix: true,
+        })
+    } else if parser.current == Token::Delete {
+        parser.next()?;
+        left = Box::new(UnaryExpression {
+            argument: parse_expression(parser, 14)?,
+            operator: "delete".to_string(),
             prefix: true,
         })
     } else if parser.current == Token::True {

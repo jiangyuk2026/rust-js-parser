@@ -79,7 +79,7 @@ impl Lex {
                         result = self.read_divide_regex_comment()?;
                         break;
                     }
-                    '=' | '+' | '-' | '*' | '%' | '>' | '<' | '|' | '?' | ':' | '!' | '&' => {
+                    '=' | '+' | '-' | '*' | '%' | '>' | '<' | '|' | '?' | ':' | '!' | '&' | '~' => {
                         result = self.read_operation()?;
                         break;
                     }
@@ -105,7 +105,7 @@ impl Lex {
                         result = self.read_template_str()?;
                         break;
                     }
-                    _ => return Err("Unrecognized character {c}".to_string()),
+                    _ => return Err(format!("Unrecognized character {}", c)),
                 },
                 None => {
                     result = Token::EOF;
@@ -319,45 +319,49 @@ impl Lex {
             self.pos += 1;
             self.column += 1;
             let d = self.input.chars().nth(self.pos);
+            if d.is_none() {
+                break;
+            }
+            let d = d.unwrap();
+            if !escaped && d == '\\' {
+                escaped = true;
+                word.push('\\');
+                continue;
+            }
+            if escaped {
+                escaped = false;
+                word.push(d);
+                continue;
+            }
             match d {
-                Some(d) => match d {
-                    '/' => {
+                '/' => {
+                    if flags_start {
+                        return Err("expect regex flags, but found /".to_string());
+                    }
+                    flags_start = true
+                }
+                '_' | 'a'..='z' | '0'..='9' => match d {
+                    'i' | 'g' | 'm' | 's' | 'u' | 'y' => {
                         if flags_start {
-                            return Err("expect regex flags, but found /".to_string());
-                        }
-                        if escaped {
-                            escaped = false;
-                            word.push(d);
-                        } else {
-                            flags_start = true
+                            if flags.contains(d) {
+                                return Err("repeated regex flags".to_string());
+                            }
+                            flags.push(d);
                         }
                     }
-                    '_' | 'a'..='z' | '0'..='9' => match d {
-                        'i' | 'g' | 'm' | 's' | 'u' | 'y' => {
-                            if flags_start {
-                                if flags.contains(d) {
-                                    return Err("repeated regex flags".to_string());
-                                }
-                                flags.push(d);
-                            }
-                        }
-                        _ => {
-                            if flags_start {
-                                return Err("regex expect newline or semicolon".to_string());
-                            } else {
-                                word.push(d);
-                            }
-                        }
-                    },
                     _ => {
                         if flags_start {
-                            break;
+                            return Err("regex expect newline or semicolon".to_string());
+                        } else {
+                            word.push(d);
                         }
-                        word.push(d);
                     }
                 },
-                None => {
-                    break;
+                _ => {
+                    if flags_start {
+                        break;
+                    }
+                    word.push(d);
                 }
             }
         }

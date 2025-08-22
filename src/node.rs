@@ -121,6 +121,14 @@ pub enum Node {
         right: Box<Node>,
         body: Box<Node>,
     },
+    WhileStatement {
+        test: Box<Node>,
+        body: Box<Node>,
+    },
+    DoWhileStatement {
+        body: Box<Node>,
+        test: Box<Node>,
+    },
     FunctionDeclaration {
         id: Box<Node>,
         params: Vec<Node>,

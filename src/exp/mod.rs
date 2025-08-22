@@ -7,3 +7,4 @@ pub mod try_exp;
 pub mod switch_exp;
 pub mod arrow_function_exp;
 pub mod array_exp;
+pub mod while_exp;
