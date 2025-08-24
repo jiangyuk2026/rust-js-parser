@@ -89,7 +89,7 @@ fn build_possible_object(parser: &mut Parser) -> Result<Box<Node>, String> {
         }
         let key: Node;
 
-        match &parser.current {
+        match &*parser.current {
             Token::Variable(s) => {
                 key = StringLiteral {
                     value: s.to_string(),
@@ -238,7 +238,7 @@ mod test_arrow_function {
         let mut parser = Parser::new("let a = b => {}".to_string()).unwrap();
         let ast = parser.parse();
         println!("{ast:#?}");
-        assert_eq!(parser.current, Token::EOF)
+        assert_eq!(*parser.current, Token::EOF)
     }
 
     #[test]
@@ -246,7 +246,7 @@ mod test_arrow_function {
         let mut parser = Parser::new("let a = (b,c,d) => {}".to_string()).unwrap();
         let ast = parser.parse();
         println!("{ast:#?}");
-        assert_eq!(parser.current, Token::EOF)
+        assert_eq!(*parser.current, Token::EOF)
     }
 
     #[test]
@@ -254,7 +254,7 @@ mod test_arrow_function {
         let mut parser = Parser::new("let a = ([a,b,c]) => {}".to_string()).unwrap();
         let ast = parser.parse();
         println!("{ast:#?}");
-        assert_eq!(parser.current, Token::EOF)
+        assert_eq!(*parser.current, Token::EOF)
     }
 
     #[test]
@@ -262,7 +262,7 @@ mod test_arrow_function {
         let mut parser = Parser::new("let a = ({a: {b: {c=1}}}) => {}".to_string()).unwrap();
         let ast = parser.parse();
         println!("{ast:#?}");
-        assert_eq!(parser.current, Token::EOF)
+        assert_eq!(*parser.current, Token::EOF)
     }
 
     #[test]

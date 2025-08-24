@@ -16,25 +16,15 @@ pub fn build_if(parser: &mut Parser) -> Result<Box<Node>, String> {
     test = parse_expression(parser, 0)?;
     expect(parser, ")")?;
 
-    if is_ctrl_word(&parser.current, "{") {
-        consequent = Parser::parse_block(parser)?;
-    } else if is_ctrl_word(&parser.current, ";") {
-        consequent = Box::new(EmptyStatement {});
-        parser.regex_allowed = true;
-        parser.next()?;
-    } else {
-        return Err("if syntax error".to_string());
-    }
+    consequent = parser.build_maybe_empty_body()?;
 
-    if parser.current == Token::Else {
+    if *parser.current == Token::Else {
         parser.regex_allowed = true;
         parser.next()?;
-        if parser.current == Token::If {
+        if *parser.current == Token::If {
             alternate = Some(build_if(parser)?);
-        } else if is_ctrl_word(&parser.current, "{") {
-            alternate = Some(Parser::parse_block(parser)?);
         } else {
-            alternate = Some(Box::new(EmptyStatement {}));
+            alternate = Some(parser.build_maybe_empty_body()?);
         }
     } else {
         alternate = None;
@@ -56,7 +46,7 @@ mod test_if_statement {
         let mut parser = Parser::new("if (a) {}".to_string()).unwrap();
         let ast = parser.parse();
         println!("{ast:#?}");
-        assert_eq!(parser.current, Token::EOF)
+        assert_eq!(*parser.current, Token::EOF)
     }
 
     #[test]
@@ -64,7 +54,7 @@ mod test_if_statement {
         let mut parser = Parser::new("if (a) {} else {let b = 1;}".to_string()).unwrap();
         let ast = parser.parse();
         println!("{ast:#?}");
-        assert_eq!(parser.current, Token::EOF)
+        assert_eq!(*parser.current, Token::EOF)
     }
 
     #[test]
@@ -72,6 +62,6 @@ mod test_if_statement {
         let mut parser = Parser::new("if (1) {} else if(2){} else {}".to_string()).unwrap();
         let ast = parser.parse();
         println!("{ast:#?}");
-        assert_eq!(parser.current, Token::EOF)
+        assert_eq!(*parser.current, Token::EOF)
     }
 }

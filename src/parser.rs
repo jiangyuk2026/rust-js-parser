@@ -13,6 +13,7 @@ use crate::node::Node::{
     ThrowStatement,
 };
 use crate::token::Token;
+use std::rc::Rc;
 
 #[derive(PartialEq, Debug)]
 pub enum IsArrowFunction {
@@ -29,14 +30,14 @@ pub enum IsForIn {
 }
 
 pub struct Parser {
-    pub current: Token,
+    pub current: Rc<Token>,
     pub is_arrow_function: IsArrowFunction,
     pub is_for_in: IsForIn,
     pub in_for_init: bool,
-    pub list: Vec<Token>,
+    pub list: Vec<Rc<Token>>,
     pub loc: Loc,
     pub last_loc_line: usize,
-    comment: Option<Token>,
+    comment_list: Vec<Token>,
     pub regex_allowed: bool,
     pub is_identity_keyword: bool,
     pub is_identity_finally: bool,
@@ -44,27 +45,45 @@ pub struct Parser {
     lex: Lex,
 }
 
+pub fn lex_next(lex: &mut Lex) -> Result<(Rc<Token>, Loc, Vec<Token>, usize), String> {
+    let mut total = 0;
+    let mut comment_list = vec![];
+    let mut current;
+    let mut loc;
+    loop {
+        (current, loc) = lex.next()?;
+        total += 1;
+        /*if self.last_loc_line> 9320 {
+            println!("token: {}", self.current);
+        }*/
+        // self.list.insert(0, self.current.clone());
+        if matches!(current, Token::Comment(_)) {
+            comment_list.push(current);
+        } else {
+            break;
+        }
+    }
+    Ok((Rc::new(current), loc, comment_list, total))
+}
+
 impl Parser {
     pub fn new(input: String) -> Result<Parser, String> {
         let mut lex = Lex::new(input.to_string());
         let mut current;
         let mut loc;
-        loop {
-            (current, loc) = lex.next()?;
-            if current != Token::LF || current == Token::EOF {
-                break;
-            }
-        }
+        let comment_list;
+        let total;
+        (current, loc, comment_list, total) = lex_next(&mut lex)?;
 
         let parser = Parser {
-            comment: None,
-            current: current.clone(),
+            current: Rc::clone(&current),
+            comment_list,
+            list: vec![Rc::clone(&current)],
             loc: loc.clone(),
             last_loc_line: 0,
             is_arrow_function: IsArrowFunction::Maybe,
             in_for_init: false,
             is_for_in: IsForIn::Maybe,
-            list: vec![current],
             regex_allowed: true,
             is_identity_keyword: false,
             is_identity_finally: false,
@@ -78,17 +97,11 @@ impl Parser {
     pub fn next(&mut self) -> Result<(), String> {
         self.lex.regex_allowed = self.regex_allowed;
         self.last_loc_line = self.loc.end.line;
-        loop {
-            (self.current, self.loc) = self.lex.next()?;
-            self.total_word_count += 1;
-            /*if self.last_loc_line> 9320 {
-                println!("token: {}", self.current);
-            }*/
-            // self.list.insert(0, self.current.clone());
-            if !matches!(self.current, Token::Comment(_)) {
-                break;
-            }
-        }
+        let (current, loc, comment_list, total) = lex_next(&mut self.lex)?;
+        self.total_word_count += total;
+        self.current = Rc::clone(&current);
+        self.loc = loc;
+        self.comment_list = comment_list;
         self.regex_allowed = false;
         Ok(())
     }
@@ -97,90 +110,70 @@ impl Parser {
         self.last_loc_line == self.loc.start.line
     }
 
+    pub fn parse_statement(&mut self) -> Result<Option<Node>, String> {
+        match *self.current {
+            Token::EOF => Err("expect statement".to_string()),
+            Token::Var | Token::Let | Token::Const => Ok(Some(*build_let(self)?)),
+            Token::For => Ok(Some(*build_for(self)?)),
+            Token::Function => Ok(Some(*build_function(self, true)?)),
+            Token::If => Ok(Some(*build_if(self)?)),
+            Token::While => Ok(Some(*build_while(self)?)),
+            Token::Do => Ok(Some(*build_do_while(self)?)),
+            Token::Try => Ok(Some(*build_try(self)?)),
+            Token::Switch => Ok(Some(*build_switch(self)?)),
+            Token::Return => {
+                self.regex_allowed = true;
+                self.next()?;
+                if !self.is_same_line() || *self.current == Token::EOF {
+                    Ok(Some(ReturnStatement { argument: None }))
+                } else if is_ctrl_word(&self.current, "}") || is_ctrl_word(&self.current, ";") {
+                    Ok(Some(ReturnStatement { argument: None }))
+                } else {
+                    Ok(Some(ReturnStatement {
+                        argument: Some(parse_expression(self, 0)?),
+                    }))
+                }
+            }
+            Token::Break => {
+                self.next()?;
+                Ok(Some(BreakStatement { label: None }))
+            }
+            Token::Continue => {
+                self.next()?;
+                Ok(Some(ContinueStatement { label: None }))
+            }
+            Token::Throw => {
+                self.regex_allowed = true;
+                self.next()?;
+                if !self.is_same_line() || *self.current == Token::EOF {
+                    return Err("expression expected".to_string());
+                }
+                if is_ctrl_word(&self.current, "}") || is_ctrl_word(&self.current, ";") {
+                    return Err("Unexpected token".to_string());
+                }
+                Ok(Some(ThrowStatement {
+                    argument: parse_expression(self, 0)?,
+                }))
+            }
+            _ => Ok(Some(*parse_expression(self, 0)?)),
+        }
+    }
+
     pub fn parse_statement_list(&mut self) -> Result<Vec<Node>, String> {
         let mut ast = vec![];
         loop {
-            match &self.current {
+            match &*self.current {
                 Token::EOF => break,
-                Token::Comment(_) => {
-                    self.comment = Some(self.current.clone());
-                    self.next()?;
-                }
+                Token::Case | Token::Default => break,
                 Token::Control(s) => match s.as_str() {
-                    ";" => {
-                        self.regex_allowed = true;
-                        self.next()?;
-                    }
                     "}" => break,
-                    "{" => {
-                        ast.push(*self.parse_block()?);
-                    }
-                    _ => ast.push(*parse_expression(self, 0)?),
+                    _ => {}
                 },
-                Token::Case | Token::Default => {
-                    break;
-                }
-                Token::Var | Token::Let | Token::Const => {
-                    ast.push(*build_let(self)?);
-                }
-                Token::For => {
-                    ast.push(*build_for(self)?);
-                }
-                Token::Function => {
-                    ast.push(*build_function(self, true)?);
-                }
-                Token::If => {
-                    ast.push(*build_if(self)?);
-                }
-                Token::While => {
-                    ast.push(*build_while(self)?);
-                }
-                Token::Do => {
-                    ast.push(*build_do_while(self)?);
-                }
-                Token::Try => {
-                    ast.push(*build_try(self)?);
-                }
-                Token::Switch => {
-                    ast.push(*build_switch(self)?);
-                }
-                Token::Return => {
-                    self.regex_allowed = true;
-                    self.next()?;
-                    if !self.is_same_line() || self.current == Token::EOF {
-                        ast.push(ReturnStatement { argument: None })
-                    } else if is_ctrl_word(&self.current, "}") || is_ctrl_word(&self.current, ";") {
-                        ast.push(ReturnStatement { argument: None })
-                    } else {
-                        ast.push(ReturnStatement {
-                            argument: Some(parse_expression(self, 0)?),
-                        })
-                    }
-                }
-                Token::Break => {
-                    self.next()?;
-                    ast.push(BreakStatement { label: None })
-                }
-                Token::Continue => {
-                    self.next()?;
-                    ast.push(ContinueStatement { label: None })
-                }
-                Token::Throw => {
-                    self.regex_allowed = true;
-                    self.next()?;
-                    if !self.is_same_line() || self.current == Token::EOF {
-                        return Err("expression expected".to_string());
-                    }
-                    if is_ctrl_word(&self.current, "}") || is_ctrl_word(&self.current, ";") {
-                        return Err("Unexpected token".to_string());
-                    }
-                    ast.push(ThrowStatement {
-                        argument: parse_expression(self, 0)?,
-                    })
-                }
-                _ => {
-                    ast.push(*parse_expression(self, 0)?);
-                }
+                _ => {}
+            }
+            let statement = self.parse_statement()?;
+            if statement.is_some() {
+                ast.push(statement.unwrap());
             }
         }
         Ok(ast)
@@ -206,9 +199,10 @@ impl Parser {
             body = Parser::parse_block(self)?;
         } else if is_ctrl_word(&self.current, ";") {
             body = Box::new(EmptyStatement {});
+            self.regex_allowed = true;
             self.next()?;
         } else {
-            return Err("for body error".to_string());
+            body = parse_expression(self, 0)?
         }
         Ok(body)
     }
@@ -227,9 +221,9 @@ mod parser_test {
     fn test1() {
         let mut parser = Parser::new(" \n let \n a \n = \n b\n ;".to_string()).unwrap();
 
-        assert_eq!(Token::Let, parser.current);
+        assert_eq!(Token::Let, *parser.current);
         parser.next().unwrap();
-        assert_eq!(Token::Variable("a".to_string()), parser.current);
+        assert_eq!(Token::Variable("a".to_string()), *parser.current);
     }
 
     #[test]

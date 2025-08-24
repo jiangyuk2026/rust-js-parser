@@ -17,12 +17,12 @@ pub fn build_for(parser: &mut Parser) -> Result<Box<Node>, String> {
 
     parser.in_for_init = true;
     parser.is_for_in = IsForIn::Maybe;
-    if parser.current == Token::Let
-        || parser.current == Token::Var
-        || parser.current == Token::Const
+    if *parser.current == Token::Let
+        || *parser.current == Token::Var
+        || *parser.current == Token::Const
     {
         init = build_let(parser)?;
-        if parser.current == Token::In {
+        if *parser.current == Token::In {
             parser.is_for_in = IsForIn::Must;
             is_single_variable_without_value(&*init)?;
             parser.regex_allowed = true;
@@ -30,9 +30,9 @@ pub fn build_for(parser: &mut Parser) -> Result<Box<Node>, String> {
         } else {
             parser.is_for_in = IsForIn::Impossible;
         }
-    } else if let Token::Variable(_) = &parser.current {
+    } else if let Token::Variable(_) = &*parser.current {
         init = parse_expression(parser, 0)?;
-        if parser.current == Token::In {
+        if *parser.current == Token::In {
             if !matches!(*init, Identity { .. }) {
                 return Err("for in: syntax error".to_string());
             }
@@ -113,21 +113,21 @@ mod test {
         let mut parser = Parser::new("for(let i =1; i < 10;i++) {}".to_string()).unwrap();
         let ast = parser.parse();
         println!("{ast:#?}");
-        assert_eq!(parser.current, Token::EOF)
+        assert_eq!(*parser.current, Token::EOF)
     }
 
     #[test]
     fn test_for_empty() {
         let mut parser = Parser::new("for(let i =1; i < 10;i++);".to_string()).unwrap();
         let ast = parser.parse();
-        assert_eq!(parser.current, Token::EOF)
+        assert_eq!(*parser.current, Token::EOF)
     }
 
     #[test]
     fn test_for_empty2() {
         let mut parser = Parser::new("for(let i =1; i < 10;i++);".to_string()).unwrap();
         let ast = parser.parse();
-        assert_eq!(parser.current, Token::EOF)
+        assert_eq!(*parser.current, Token::EOF)
     }
 
     #[test]
@@ -135,7 +135,7 @@ mod test {
         let mut parser =
             Parser::new("for(let i =1; i < 10;i++){let a = 1;let b= 2;}".to_string()).unwrap();
         let ast = parser.parse();
-        assert_eq!(parser.current, Token::EOF)
+        assert_eq!(*parser.current, Token::EOF)
     }
 
     #[test]
@@ -143,7 +143,7 @@ mod test {
         let mut parser = Parser::new("for(let i in {}) {}".to_string()).unwrap();
         let ast = parser.parse();
         println!("{ast:#?}");
-        assert_eq!(parser.current, Token::EOF)
+        assert_eq!(*parser.current, Token::EOF)
     }
 
     #[test]

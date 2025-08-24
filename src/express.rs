@@ -1,3 +1,4 @@
+use std::rc::Rc;
 use crate::exp::array_exp::build_array;
 use crate::exp::arrow_function_exp::build_possible_arrow_function;
 use crate::exp::function_exp::build_function;
@@ -17,9 +18,9 @@ pub fn parse_expression(parser: &mut Parser, min_level: u8) -> Result<Box<Node>,
             name: parser.current.to_string(),
         });
         parser.next()?;
-    } else if parser.current == Token::Function {
+    } else if *parser.current == Token::Function {
         left = build_function(parser, false)?;
-    } else if let Token::Control(s) = &parser.current {
+    } else if let Token::Control(s) = &*parser.current {
         let operator = s.to_string();
         let l = get_level(&parser.current)?;
         match s.as_str() {
@@ -49,7 +50,7 @@ pub fn parse_expression(parser: &mut Parser, min_level: u8) -> Result<Box<Node>,
             "{" => left = build_object(parser)?,
             _ => return Err("expect control,".to_string()),
         }
-    } else if parser.current == Token::Typeof {
+    } else if *parser.current == Token::Typeof {
         parser.regex_allowed = true;
         parser.next()?;
         left = Box::new(UnaryExpression {
@@ -57,7 +58,7 @@ pub fn parse_expression(parser: &mut Parser, min_level: u8) -> Result<Box<Node>,
             operator: "typeof".to_string(),
             prefix: true,
         })
-    } else if parser.current == Token::Delete {
+    } else if *parser.current == Token::Delete {
         parser.regex_allowed = true;
         parser.next()?;
         left = Box::new(UnaryExpression {
@@ -65,30 +66,30 @@ pub fn parse_expression(parser: &mut Parser, min_level: u8) -> Result<Box<Node>,
             operator: "delete".to_string(),
             prefix: true,
         })
-    } else if parser.current == Token::True {
+    } else if *parser.current == Token::True {
         parser.next()?;
         left = Box::new(BooleanLiteral { value: true });
-    } else if parser.current == Token::False {
+    } else if *parser.current == Token::False {
         parser.next()?;
         left = Box::new(BooleanLiteral { value: false });
-    } else if parser.current == Token::This {
+    } else if *parser.current == Token::This {
         parser.next()?;
         left = Box::new(ThisExpression {});
-    } else if parser.current == Token::Null {
+    } else if *parser.current == Token::Null {
         parser.next()?;
         left = Box::new(NullLiteral {});
-    } else if parser.current == Token::Undefined {
+    } else if *parser.current == Token::Undefined {
         parser.next()?;
         left = Box::new(Identity {
             name: "undefined".to_string(),
         });
-    } else if let Token::Regex(pattern, flags) = &parser.current {
+    } else if let Token::Regex(pattern, flags) = &*parser.current {
         left = Box::new(RegExpLiteral {
             pattern: pattern.to_string(),
             flags: flags.to_string(),
         });
         parser.next()?;
-    } else if let Token::TemplateStr(s) = &parser.current {
+    } else if let Token::TemplateStr(s) = &*parser.current {
         left = Box::new(TemplateLiteral {
             expressions: vec![],
             quasis: vec![TemplateElement {
@@ -96,7 +97,7 @@ pub fn parse_expression(parser: &mut Parser, min_level: u8) -> Result<Box<Node>,
             }],
         });
         parser.next()?;
-    } else if parser.current == Token::New {
+    } else if *parser.current == Token::New {
         parser.next()?;
         let callee = parse_expression(parser, 18)?;
         let mut arguments = vec![];
@@ -114,7 +115,7 @@ pub fn parse_expression(parser: &mut Parser, min_level: u8) -> Result<Box<Node>,
             expect(parser, ")")?;
         }
         left = Box::new(NewExpression { callee, arguments });
-    } else if parser.current == Token::Void {
+    } else if *parser.current == Token::Void {
         parser.regex_allowed = true;
         parser.next()?;
         left = Box::new(UnaryExpression {
@@ -122,17 +123,17 @@ pub fn parse_expression(parser: &mut Parser, min_level: u8) -> Result<Box<Node>,
             argument: parse_expression(parser, 17)?,
             prefix: true,
         })
-    } else if let Token::Variable(s) = &parser.current {
+    } else if let Token::Variable(s) = &*parser.current {
         left = Box::new(Identity {
             name: s.to_string(),
         });
         parser.next()?;
-    } else if let Token::Digit(d) = &parser.current {
+    } else if let Token::Digit(d) = &*parser.current {
         left = Box::new(Node::NumericLiteral {
             value: d.to_string(),
         });
         parser.next()?;
-    } else if let Token::String(d) = &parser.current {
+    } else if let Token::String(d) = &*parser.current {
         left = Box::new(Node::StringLiteral {
             value: d.to_string(),
         });
@@ -145,8 +146,8 @@ pub fn parse_expression(parser: &mut Parser, min_level: u8) -> Result<Box<Node>,
     }
     parser.is_identity_keyword = false;
     loop {
-        let operator = parser.current.clone();
-        match &operator {
+        let operator = &*Rc::clone(&parser.current);
+        match operator {
             Token::Control(s) => match s.as_str() {
                 ";" | ":" | ")" | "]" | "}" => break,
                 _ => {}
@@ -178,7 +179,7 @@ pub fn parse_expression(parser: &mut Parser, min_level: u8) -> Result<Box<Node>,
             break;
         }
 
-        match &operator {
+        match &*operator {
             Token::Control(s) => match s.as_str() {
                 "," => {
                     parser.regex_allowed = true;
@@ -317,7 +318,7 @@ pub fn parse_expression(parser: &mut Parser, min_level: u8) -> Result<Box<Node>,
                 }
             },
             Token::Instanceof | Token::In => {
-                let operator = if operator == Token::Instanceof {
+                let operator = if *operator == Token::Instanceof {
                     "instanceof"
                 } else {
                     "in"
@@ -394,7 +395,7 @@ pub fn is_ctrl_word(word: &Token, str: &str) -> bool {
 }
 
 pub fn expect(parser: &mut Parser, s: &str) -> Result<(), String> {
-    match &parser.current {
+    match &*parser.current {
         Token::Control(next) => {
             if next != s {
                 return Err(format!("expect() expect: {s}"));

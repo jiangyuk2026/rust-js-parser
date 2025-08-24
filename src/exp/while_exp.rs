@@ -43,7 +43,7 @@ mod test_while_statement {
         let mut parser = Parser::new("while (a) {}".to_string()).unwrap();
         let ast = parser.parse();
         println!("{ast:#?}");
-        assert_eq!(parser.current, Token::EOF)
+        assert_eq!(*parser.current, Token::EOF)
     }
 
     #[test]
@@ -51,7 +51,7 @@ mod test_while_statement {
         let mut parser = Parser::new("while (1==1);".to_string()).unwrap();
         let ast = parser.parse();
         println!("{ast:#?}");
-        assert_eq!(parser.current, Token::EOF)
+        assert_eq!(*parser.current, Token::EOF)
     }
 
     #[test]
@@ -59,6 +59,6 @@ mod test_while_statement {
         let mut parser = Parser::new("do{}while(1)".to_string()).unwrap();
         let ast = parser.parse();
         println!("{ast:#?}");
-        assert_eq!(parser.current, Token::EOF)
+        assert_eq!(*parser.current, Token::EOF)
     }
 }

@@ -10,7 +10,7 @@ pub fn build_let(parser: &mut Parser) -> Result<Box<Node>, String> {
     let mut declarations = vec![];
     declarations.push(*build_declarator(parser)?);
     loop {
-        let c2 = &parser.current;
+        let c2 = &*parser.current;
         match c2 {
             Token::Control(s) => match s.as_str() {
                 "," => {
@@ -27,7 +27,7 @@ pub fn build_let(parser: &mut Parser) -> Result<Box<Node>, String> {
 }
 
 fn build_declarator(parser: &mut Parser) -> Result<Box<Node>, String> {
-    let id = &parser.current;
+    let id = &*parser.current;
     if let Token::Variable(s) = id {
         let id = Box::new(Node::Identity {
             name: s.to_string(),

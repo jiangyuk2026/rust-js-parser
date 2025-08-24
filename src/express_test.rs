@@ -9,7 +9,7 @@ mod test {
         let mut parser = Parser::new("a.b.c".to_string()).unwrap();
         let ast = parser.parse();
         assert!(ast.is_ok());
-        assert_eq!(parser.current, Token::EOF);
+        assert_eq!(*parser.current, Token::EOF);
     }
 
     #[test]
@@ -18,7 +18,7 @@ mod test {
         let ast = parser.parse();
         println!("{:?}", ast);
         assert!(ast.is_ok());
-        assert_eq!(parser.current, Token::EOF);
+        assert_eq!(*parser.current, Token::EOF);
     }
 
     #[test]
@@ -27,7 +27,7 @@ mod test {
         let ast = parser.parse();
         println!("{:#?}", ast);
         assert!(ast.is_ok());
-        assert_eq!(parser.current, Token::EOF);
+        assert_eq!(*parser.current, Token::EOF);
     }
 
     #[test]
@@ -36,7 +36,7 @@ mod test {
         let ast = parser.parse();
         println!("{:#?}", ast);
         assert!(ast.is_ok());
-        assert_eq!(parser.current, Token::EOF);
+        assert_eq!(*parser.current, Token::EOF);
     }
 
     #[test]
@@ -44,7 +44,7 @@ mod test {
         let mut parser = Parser::new("a,b".to_string()).unwrap();
         let ast = parser.parse();
         println!("{:#?}", ast);
-        assert_eq!(parser.current, Token::EOF);
+        assert_eq!(*parser.current, Token::EOF);
     }
 
     #[test]
@@ -52,14 +52,14 @@ mod test {
         let mut parser = Parser::new("a,b,c".to_string()).unwrap();
         let ast = parser.parse();
         println!("{:#?}", ast);
-        assert_eq!(parser.current, Token::EOF);
+        assert_eq!(*parser.current, Token::EOF);
     }
 
     #[test]
     fn test_array2() -> Result<(), String> {
         let mut parser = Parser::new("a[b[2]]".to_string())?;
         let ast = parser.parse()?;
-        assert_eq!(parser.current, Token::EOF);
+        assert_eq!(*parser.current, Token::EOF);
         Ok(())
     }
 
@@ -68,7 +68,7 @@ mod test {
         let mut parser = Parser::new("typeof typeof a".to_string())?;
         let ast = parser.parse()?;
         println!("{:#?}", ast);
-        assert_eq!(parser.current, Token::EOF);
+        assert_eq!(*parser.current, Token::EOF);
         Ok(())
     }
 
@@ -77,7 +77,7 @@ mod test {
         let mut parser = Parser::new("a in a in a".to_string())?;
         let ast = parser.parse()?;
         println!("{:#?}", ast);
-        assert_eq!(parser.current, Token::EOF);
+        assert_eq!(*parser.current, Token::EOF);
         Ok(())
     }
 
@@ -86,7 +86,7 @@ mod test {
         let mut parser = Parser::new("a = b ? c ? d : e : f".to_string()).unwrap();
         let ast = parser.parse();
         assert!(ast.is_ok());
-        assert_eq!(parser.current, Token::EOF);
+        assert_eq!(*parser.current, Token::EOF);
     }
 
     #[test]
@@ -95,7 +95,7 @@ mod test {
         let ast = parser.parse();
         assert!(ast.is_ok());
         println!("{:#?}", ast);
-        assert_eq!(parser.current, Token::EOF);
+        assert_eq!(*parser.current, Token::EOF);
     }
 
     #[test]
@@ -103,7 +103,7 @@ mod test {
         let mut parser = Parser::new("c = a + +b + d++".to_string()).unwrap();
         let ast = parser.parse();
         assert!(ast.is_ok());
-        assert_eq!(parser.current, Token::EOF);
+        assert_eq!(*parser.current, Token::EOF);
     }
 
     #[test]
@@ -111,7 +111,7 @@ mod test {
         let mut parser = Parser::new("c = a ? b(d,e,f) : 2+3".to_string()).unwrap();
         let ast = parser.parse();
         assert!(ast.is_ok());
-        assert_eq!(parser.current, Token::EOF);
+        assert_eq!(*parser.current, Token::EOF);
     }
 
     #[test]
@@ -120,7 +120,7 @@ mod test {
         let ast = parser.parse();
         println!("{:#?}", ast);
         assert!(ast.is_ok());
-        assert_eq!(parser.current, Token::EOF);
+        assert_eq!(*parser.current, Token::EOF);
     }
 
     #[test]
@@ -129,7 +129,7 @@ mod test {
         let ast = parser.parse();
         println!("{:#?}", ast);
         assert!(ast.is_ok());
-        assert_eq!(parser.current, Token::EOF);
+        assert_eq!(*parser.current, Token::EOF);
     }
 
     #[test]
@@ -138,7 +138,7 @@ mod test {
         let ast = parser.parse();
         println!("{:#?}", ast);
         assert!(ast.is_ok());
-        assert_eq!(parser.current, Token::EOF);
+        assert_eq!(*parser.current, Token::EOF);
     }
 
     #[test]
@@ -147,7 +147,7 @@ mod test {
         let ast = parser.parse();
         println!("{:#?}", ast);
         assert!(ast.is_ok());
-        assert_eq!(parser.current, Token::EOF);
+        assert_eq!(*parser.current, Token::EOF);
     }
 
     #[test]
@@ -156,7 +156,7 @@ mod test {
         let ast = parser.parse();
         println!("{:#?}", ast);
         assert!(ast.is_ok());
-        assert_eq!(parser.current, Token::EOF);
+        assert_eq!(*parser.current, Token::EOF);
     }
 
     #[test]
@@ -165,7 +165,7 @@ mod test {
         let ast = parser.parse();
         println!("{:#?}", ast);
         assert!(ast.is_ok());
-        assert_eq!(parser.current, Token::EOF);
+        assert_eq!(*parser.current, Token::EOF);
     }
 
     #[test]
@@ -174,7 +174,7 @@ mod test {
         let ast = parser.parse();
         println!("{:#?}", ast);
         assert!(ast.is_ok());
-        assert_eq!(parser.current, Token::EOF);
+        assert_eq!(*parser.current, Token::EOF);
     }
 
     #[test]
@@ -185,7 +185,7 @@ mod test {
         let ast = parser.parse();
         println!("{:#?}", ast);
         assert!(ast.is_ok());
-        assert_eq!(parser.current, Token::EOF);
+        assert_eq!(*parser.current, Token::EOF);
     }
 
     #[test]
@@ -194,6 +194,6 @@ mod test {
         let ast = parser.parse();
         println!("{:#?}", ast);
         assert!(ast.is_ok());
-        assert_eq!(parser.current, Token::EOF);
+        assert_eq!(*parser.current, Token::EOF);
     }
 }

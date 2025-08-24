@@ -15,7 +15,7 @@ pub fn build_function(parser: &mut Parser, is_declaration: bool) -> Result<Box<N
     expect_keyword(&parser.current, Token::Function)?;
     parser.next()?;
 
-    if let Token::Variable(s) = &parser.current {
+    if let Token::Variable(s) = &*parser.current {
         id = Some(Box::new(Identity {
             name: s.to_string(),
         }));
@@ -48,7 +48,7 @@ pub fn handle_function_params(parser: &mut Parser) -> Result<Vec<Node>, String> 
             parser.regex_allowed = true;
             parser.next()?;
             continue;
-        } else if let Token::Variable(s) = &parser.current {
+        } else if let Token::Variable(s) = &*parser.current {
             let param = Identity {
                 name: s.to_string(),
             };
@@ -84,7 +84,7 @@ fn handle_object(parser: &mut Parser) -> Result<Node, String> {
     loop {
         if is_ctrl_word(&parser.current, "}") {
             break;
-        } else if let Token::Variable(s) = &parser.current {
+        } else if let Token::Variable(s) = &*parser.current {
             let name = s.to_string();
             parser.next()?;
             if is_ctrl_word(&parser.current, ":") {
@@ -159,7 +159,7 @@ fn handle_array(parser: &mut Parser) -> Result<Node, String> {
             break;
         } else if is_ctrl_word(&parser.current, ",") {
             parser.next()?;
-        } else if let Token::Variable(s) = &parser.current {
+        } else if let Token::Variable(s) = &*parser.current {
             let name = Identity {
                 name: s.to_string(),
             };
@@ -198,7 +198,7 @@ mod test {
         let mut parser = Parser::new("function a() {}".to_string()).unwrap();
         let ast = parser.parse();
         println!("{ast:#?}");
-        assert_eq!(parser.current, Token::EOF)
+        assert_eq!(*parser.current, Token::EOF)
     }
 
     #[test]
@@ -206,7 +206,7 @@ mod test {
         let mut parser = Parser::new("let a = function a() {}".to_string()).unwrap();
         let ast = parser.parse();
         println!("{ast:#?}");
-        assert_eq!(parser.current, Token::EOF)
+        assert_eq!(*parser.current, Token::EOF)
     }
 
     #[test]
@@ -214,7 +214,7 @@ mod test {
         let mut parser = Parser::new("let a = function () {}".to_string()).unwrap();
         let ast = parser.parse();
         println!("{ast:#?}");
-        assert_eq!(parser.current, Token::EOF)
+        assert_eq!(*parser.current, Token::EOF)
     }
 
     #[test]
@@ -224,7 +224,7 @@ mod test {
         if ast.is_err() {
             println!("{:#?}", ast.err().unwrap());
         }
-        assert_eq!(parser.current, Token::EOF)
+        assert_eq!(*parser.current, Token::EOF)
     }
 
     #[test]
@@ -232,14 +232,14 @@ mod test {
         let mut parser = Parser::new("function a(b=1, c) {}".to_string()).unwrap();
         let ast = parser.parse();
         println!("{ast:#?}");
-        assert_eq!(parser.current, Token::EOF)
+        assert_eq!(*parser.current, Token::EOF)
     }
 
     #[test]
     fn test_function_body() -> Result<(), String> {
         let mut parser = Parser::new("function a(b=1, c) {let z = 1}".to_string()).unwrap();
         let ast = parser.parse()?;
-        assert_eq!(parser.current, Token::EOF);
+        assert_eq!(*parser.current, Token::EOF);
         Ok(())
     }
 
@@ -248,7 +248,7 @@ mod test {
         let mut parser = Parser::new("function a({a=2}) {let z = 1}".to_string()).unwrap();
         let ast = parser.parse()?;
         println!("{ast:#?}");
-        assert_eq!(parser.current, Token::EOF);
+        assert_eq!(*parser.current, Token::EOF);
         Ok(())
     }
 
@@ -257,7 +257,7 @@ mod test {
         let mut parser = Parser::new("function a({b: {c = 3}}) {}".to_string()).unwrap();
         let ast = parser.parse()?;
         println!("{ast:#?}");
-        assert_eq!(parser.current, Token::EOF);
+        assert_eq!(*parser.current, Token::EOF);
         Ok(())
     }
 
@@ -266,7 +266,7 @@ mod test {
         let mut parser = Parser::new("function a([a,b,c]) {let z = 1}".to_string()).unwrap();
         let ast = parser.parse()?;
         println!("{ast:#?}");
-        assert_eq!(parser.current, Token::EOF);
+        assert_eq!(*parser.current, Token::EOF);
         Ok(())
     }
 
@@ -275,7 +275,7 @@ mod test {
         let mut parser = Parser::new("function a([b = {c: 3}], d) {let z = 1}".to_string()).unwrap();
         let ast = parser.parse()?;
         println!("{ast:#?}");
-        assert_eq!(parser.current, Token::EOF);
+        assert_eq!(*parser.current, Token::EOF);
         Ok(())
     }
 
@@ -284,7 +284,7 @@ mod test {
         let mut parser = Parser::new("function b(c, {d: {e: [f, g, {h = 3}]}}) {}".to_string()).unwrap();
         let ast = parser.parse()?;
         println!("{ast:#?}");
-        assert_eq!(parser.current, Token::EOF);
+        assert_eq!(*parser.current, Token::EOF);
         Ok(())
     }
 
@@ -293,7 +293,7 @@ mod test {
         let mut parser = Parser::new("function a2([[b,c,d]]) {}".to_string()).unwrap();
         let ast = parser.parse()?;
         println!("{ast:#?}");
-        assert_eq!(parser.current, Token::EOF);
+        assert_eq!(*parser.current, Token::EOF);
         Ok(())
     }
 }

@@ -14,7 +14,7 @@ pub fn build_try(parser: &mut Parser) -> Result<Box<Node>, String> {
 
     block = Parser::parse_block(parser)?;
 
-    if parser.current == Token::Catch {
+    if *parser.current == Token::Catch {
         let param: Option<Box<Node>>;
         let body: Box<Node>;
         parser.next()?;
@@ -25,7 +25,7 @@ pub fn build_try(parser: &mut Parser) -> Result<Box<Node>, String> {
                 parser.next()?;
             } else if is_ctrl_word(&parser.current, "{") {
                 return Err("catch({}) unsupported now".to_string());
-            } else if let Token::Variable(s) = &parser.current {
+            } else if let Token::Variable(s) = &*parser.current {
                 param = Some(Box::new(Identity {
                     name: s.to_string(),
                 }));
@@ -46,13 +46,13 @@ pub fn build_try(parser: &mut Parser) -> Result<Box<Node>, String> {
         } else {
             return Err("catch syntax error".to_string());
         }
-        if parser.current == Token::Finally {
+        if *parser.current == Token::Finally {
             parser.next()?;
             finalizer = Some(Parser::parse_block(parser)?);
         } else {
             finalizer = None;
         }
-    } else if parser.current == Token::Finally {
+    } else if *parser.current == Token::Finally {
         handle = None;
         parser.next()?;
         finalizer = Some(Parser::parse_block(parser)?);
@@ -77,7 +77,7 @@ mod test_try_statement {
         let mut parser = Parser::new("try {} catch() {}".to_string()).unwrap();
         let ast = parser.parse();
         println!("{ast:#?}");
-        assert_eq!(parser.current, Token::EOF)
+        assert_eq!(*parser.current, Token::EOF)
     }
 
     #[test]
@@ -85,7 +85,7 @@ mod test_try_statement {
         let mut parser = Parser::new("try {} catch(a) {}".to_string()).unwrap();
         let ast = parser.parse();
         println!("{ast:#?}");
-        assert_eq!(parser.current, Token::EOF)
+        assert_eq!(*parser.current, Token::EOF)
     }
 
     #[test]
@@ -93,7 +93,7 @@ mod test_try_statement {
         let mut parser = Parser::new("try {} catch(a) {} finally {}".to_string()).unwrap();
         let ast = parser.parse();
         println!("{ast:#?}");
-        assert_eq!(parser.current, Token::EOF)
+        assert_eq!(*parser.current, Token::EOF)
     }
 
     #[test]
@@ -101,6 +101,6 @@ mod test_try_statement {
         let mut parser = Parser::new("try {} finally {}".to_string()).unwrap();
         let ast = parser.parse();
         println!("{ast:#?}");
-        assert_eq!(parser.current, Token::EOF)
+        assert_eq!(*parser.current, Token::EOF)
     }
 }

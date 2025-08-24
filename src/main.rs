@@ -27,7 +27,7 @@ fn main() -> Result<(), String> {
     let ast = parser.parse();
 
     // println!("{:#?}", ast);
-    println!("{:#?}", parser.loc);
+    // println!("{:#?}", parser.loc);
     let duration = start.elapsed();
     println!("耗时: {:.2?}", duration);
     Ok(())

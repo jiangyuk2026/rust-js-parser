@@ -17,11 +17,11 @@ pub fn build_switch(parser: &mut Parser) -> Result<Box<Node>, String> {
     expect(parser, "{")?;
 
     loop {
-        if parser.current == Token::Case || parser.current == Token::Default {
+        if *parser.current == Token::Case || *parser.current == Token::Default {
             let test: Option<Box<Node>>;
             let mut consequent: Vec<Node>;
 
-            if parser.current == Token::Case {
+            if *parser.current == Token::Case {
                 parser.regex_allowed = true;
                 parser.next()?;
                 test = Some(parse_expression(parser, 0)?);
@@ -57,7 +57,7 @@ mod test_switch_statement {
         let mut parser = Parser::new("switch (a) {}".to_string()).unwrap();
         let ast = parser.parse();
         println!("{ast:#?}");
-        assert_eq!(parser.current, Token::EOF)
+        assert_eq!(*parser.current, Token::EOF)
     }
 
     #[test]
@@ -70,7 +70,7 @@ mod test_switch_statement {
         let mut parser = Parser::new(str.to_string()).unwrap();
         let ast = parser.parse();
         println!("{ast:#?}");
-        assert_eq!(parser.current, Token::EOF)
+        assert_eq!(*parser.current, Token::EOF)
     }
 
     #[test]
@@ -86,7 +86,7 @@ mod test_switch_statement {
         let mut parser = Parser::new(str.to_string()).unwrap();
         let ast = parser.parse();
         println!("{ast:#?}");
-        assert_eq!(parser.current, Token::EOF)
+        assert_eq!(*parser.current, Token::EOF)
     }
 
     #[test]
@@ -124,6 +124,6 @@ switch (a) {
         let ast = parser.parse();
         println!("{:#?}", parser.loc);
         println!("{ast:#?}");
-        assert_eq!(parser.current, Token::EOF)
+        assert_eq!(*parser.current, Token::EOF)
     }
 }

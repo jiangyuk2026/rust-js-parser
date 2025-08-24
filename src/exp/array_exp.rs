@@ -32,7 +32,7 @@ mod test_array {
         let mut parser = Parser::new("a = []".to_string()).unwrap();
         let ast = parser.parse();
         println!("{ast:#?}");
-        assert_eq!(parser.current, Token::EOF)
+        assert_eq!(*parser.current, Token::EOF)
     }
 
     #[test]
@@ -40,7 +40,7 @@ mod test_array {
         let mut parser = Parser::new("a = [1,2,3]".to_string()).unwrap();
         let ast = parser.parse();
         println!("{ast:#?}");
-        assert_eq!(parser.current, Token::EOF)
+        assert_eq!(*parser.current, Token::EOF)
     }
 
     #[test]
@@ -48,6 +48,6 @@ mod test_array {
         let mut parser = Parser::new("a = [1,2,3, [4,5]]".to_string()).unwrap();
         let ast = parser.parse();
         println!("{ast:#?}");
-        assert_eq!(parser.current, Token::EOF)
+        assert_eq!(*parser.current, Token::EOF)
     }
 }
