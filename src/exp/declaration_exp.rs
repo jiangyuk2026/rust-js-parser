@@ -23,6 +23,9 @@ pub fn build_let(parser: &mut Parser) -> Result<Box<Node>, String> {
             _ => break,
         }
     }
+    if !parser.in_for_init && is_ctrl_word(&parser.current, ";") {
+        parser.next()?;
+    }
     Ok(Box::new(VariableDeclaration { kind, declarations }))
 }
 
@@ -35,10 +38,7 @@ fn build_declarator(parser: &mut Parser) -> Result<Box<Node>, String> {
         parser.next()?;
         let equal = &parser.current;
         if !is_ctrl_word(equal, "=") {
-            return Ok(Box::new(VariableDeclarator {
-                id,
-                init: None,
-            }));
+            return Ok(Box::new(VariableDeclarator { id, init: None }));
         }
         parser.regex_allowed = true;
         parser.next()?;

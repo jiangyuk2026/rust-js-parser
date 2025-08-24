@@ -100,6 +100,7 @@ impl Parser {
         let (current, loc, comment_list, total) = lex_next(&mut self.lex)?;
         self.total_word_count += total;
         self.current = Rc::clone(&current);
+        // self.list.insert(0, Rc::clone(&current));
         self.loc = loc;
         self.comment_list = comment_list;
         self.regex_allowed = false;
@@ -110,37 +111,47 @@ impl Parser {
         self.last_loc_line == self.loc.start.line
     }
 
-    pub fn parse_statement(&mut self) -> Result<Option<Node>, String> {
+    pub fn parse_statement(&mut self) -> Result<Node, String> {
+        let node;
         match *self.current {
-            Token::EOF => Err("expect statement".to_string()),
-            Token::Var | Token::Let | Token::Const => Ok(Some(*build_let(self)?)),
-            Token::For => Ok(Some(*build_for(self)?)),
-            Token::Function => Ok(Some(*build_function(self, true)?)),
-            Token::If => Ok(Some(*build_if(self)?)),
-            Token::While => Ok(Some(*build_while(self)?)),
-            Token::Do => Ok(Some(*build_do_while(self)?)),
-            Token::Try => Ok(Some(*build_try(self)?)),
-            Token::Switch => Ok(Some(*build_switch(self)?)),
+            Token::EOF => return Err("expect statement".to_string()),
+            Token::Var | Token::Let | Token::Const => node = *build_let(self)?,
+            Token::For => node = *build_for(self)?,
+            Token::Function => node = *build_function(self, true)?,
+            Token::If => node = *build_if(self)?,
+            Token::While => node = *build_while(self)?,
+            Token::Do => node = *build_do_while(self)?,
+            Token::Try => node = *build_try(self)?,
+            Token::Switch => node = *build_switch(self)?,
             Token::Return => {
                 self.regex_allowed = true;
                 self.next()?;
                 if !self.is_same_line() || *self.current == Token::EOF {
-                    Ok(Some(ReturnStatement { argument: None }))
+                    node = ReturnStatement { argument: None }
                 } else if is_ctrl_word(&self.current, "}") || is_ctrl_word(&self.current, ";") {
-                    Ok(Some(ReturnStatement { argument: None }))
+                    node = ReturnStatement { argument: None }
                 } else {
-                    Ok(Some(ReturnStatement {
+                    node = ReturnStatement {
                         argument: Some(parse_expression(self, 0)?),
-                    }))
+                    };
+                    if is_ctrl_word(&self.current, ";") {
+                        self.next()?;
+                    }
                 }
             }
             Token::Break => {
                 self.next()?;
-                Ok(Some(BreakStatement { label: None }))
+                node = BreakStatement { label: None };
+                if is_ctrl_word(&self.current, ";") {
+                    self.next()?;
+                }
             }
             Token::Continue => {
                 self.next()?;
-                Ok(Some(ContinueStatement { label: None }))
+                node = ContinueStatement { label: None };
+                if is_ctrl_word(&self.current, ";") {
+                    self.next()?;
+                }
             }
             Token::Throw => {
                 self.regex_allowed = true;
@@ -151,12 +162,21 @@ impl Parser {
                 if is_ctrl_word(&self.current, "}") || is_ctrl_word(&self.current, ";") {
                     return Err("Unexpected token".to_string());
                 }
-                Ok(Some(ThrowStatement {
+                node = ThrowStatement {
                     argument: parse_expression(self, 0)?,
-                }))
+                };
+                if is_ctrl_word(&self.current, ";") {
+                    self.next()?;
+                }
             }
-            _ => Ok(Some(*parse_expression(self, 0)?)),
-        }
+            _ => {
+                node = *parse_expression(self, 0)?;
+                if is_ctrl_word(&self.current, ";") {
+                    self.next()?;
+                }
+            }
+        };
+        Ok(node)
     }
 
     pub fn parse_statement_list(&mut self) -> Result<Vec<Node>, String> {
@@ -166,15 +186,23 @@ impl Parser {
                 Token::EOF => break,
                 Token::Case | Token::Default => break,
                 Token::Control(s) => match s.as_str() {
+                    "{"=> {
+                        ast.push(*self.parse_block()?);
+                        continue;
+                    }
                     "}" => break,
+                    ";" => {
+                        ast.push(EmptyStatement {});
+                        self.regex_allowed = true;
+                        self.next()?;
+                        continue;
+                    }
                     _ => {}
                 },
                 _ => {}
             }
             let statement = self.parse_statement()?;
-            if statement.is_some() {
-                ast.push(statement.unwrap());
-            }
+            ast.push(statement);
         }
         Ok(ast)
     }
@@ -202,7 +230,7 @@ impl Parser {
             self.regex_allowed = true;
             self.next()?;
         } else {
-            body = parse_expression(self, 0)?
+            body = Box::new(self.parse_statement()?);
         }
         Ok(body)
     }

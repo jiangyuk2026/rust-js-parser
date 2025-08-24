@@ -86,7 +86,7 @@ impl Lex {
                     result = self.read_operation()?;
                     break;
                 }
-                ';' | '(' | ')' | '{' | '}' | '.' | ',' | '[' | ']' => {
+                ';' | '(' | ')' | '{' | '}' | ',' | '[' | ']' => {
                     self.pos += 1;
                     self.column += 1;
                     result = Token::Control(c.to_string());
@@ -96,12 +96,8 @@ impl Lex {
                     result = self.read_word()?;
                     break;
                 }
-                '0' => {
-                    result = self.read_binary_octal_hex_digit()?;
-                    break;
-                }
-                '1'..='9' => {
-                    result = self.read_digit()?;
+                '.' | '0'..='9' => {
+                    result = self.read_digit_or_dot()?;
                     break;
                 }
                 '`' => {
@@ -429,49 +425,23 @@ impl Lex {
         Ok(Comment(word))
     }
 
-    fn read_digit(&mut self) -> Result<Token, String> {
-        let c = *self.chars.get(self.pos).unwrap();
-        let mut word = String::new();
-        let mut exponential = false;
-        word.push(c);
-        loop {
-            self.pos += 1;
-            self.column += 1;
-            let d = self.chars.get(self.pos);
-            if d.is_none() {
-                break;
-            }
-            let d = *d.unwrap();
-            match d {
-                '_' => {
-                    word.push(d);
-                }
-                '0'..='9' => {
-                    word.push(d);
-                    exponential = false;
-                }
-                'e' => {
-                    exponential = true;
-                    word.push(d);
-                }
-                _ => {
-                    break;
-                }
-            }
-        }
-        if exponential {
-            panic!("digit syntax error");
-        }
-        Ok(Token::Digit(word))
-    }
-
-    fn read_binary_octal_hex_digit(&mut self) -> Result<Token, String> {
+    fn read_digit_or_dot(&mut self) -> Result<Token, String> {
         let c = *self.chars.get(self.pos).unwrap();
         let mut word = String::new();
         let mut flag = "".to_string();
         let mut underscore_allowed = false;
         let mut underscore_ended = false;
+        let mut dot_flag = false;
+        let mut exponential = false;
         word.push(c);
+        if ('1'..='9').contains(&c) {
+            flag = "d".to_string();
+            underscore_allowed = true;
+        }
+        if c == '.' {
+            flag = "d".to_string();
+            dot_flag = true;
+        }
         loop {
             self.pos += 1;
             self.column += 1;
@@ -482,6 +452,21 @@ impl Lex {
             let d = *d.unwrap();
             if d.is_ascii_whitespace() {
                 break;
+            }
+            if word == "." && !('0'..='9').contains(&d) {
+                return Ok(Token::Control(".".to_string()));
+            }
+            if word == "0" && d == '.' {
+                flag = "d".to_string();
+            }
+            if flag == "" {
+                if d == 'o' || d == 'b' || d == 'x' {
+                    flag.push(d);
+                    word.push(d);
+                    continue;
+                } else {
+                    break;
+                }
             }
             if d == '_' {
                 if underscore_allowed {
@@ -524,22 +509,28 @@ impl Lex {
                     break;
                 }
             }
-            match d {
-                'o' | 'b' | 'x' => {
-                    if flag == "" {
-                        word.push(d);
-                        flag = d.to_string();
-                    } else {
-                        return Err("digit syntax error".to_string());
+            if flag == "d" {
+                if d == 'e' {
+                    if exponential {
+                        break;
                     }
-                }
-                _ => {
+                    exponential = true;
+                } else if d == '.' {
+                    if dot_flag {
+                        break;
+                    }
+                    dot_flag = true;
+                } else if ('0'..='9').contains(&d) {
+                    underscore_allowed = true;
+                    underscore_ended = false;
+                } else {
                     break;
                 }
+                word.push(d);
             }
         }
         if underscore_ended {
-            return Err("digit _ error".to_string());
+            return Err("digit _ error: underscore end".to_string());
         }
         Ok(Token::Digit(word))
     }
@@ -592,6 +583,14 @@ mod tests {
         let input = "1e3";
         let mut lex = Lex::new(input.to_string());
         assert_eq!(lex.next()?.0, Token::Digit("1e3".to_string()));
+        Ok(())
+    }
+
+    #[test]
+    fn test_float() -> Result<(), String> {
+        let input = "0.1";
+        let mut lex = Lex::new(input.to_string());
+        assert_eq!(lex.next()?.0, Token::Digit("0.1".to_string()));
         Ok(())
     }
 
