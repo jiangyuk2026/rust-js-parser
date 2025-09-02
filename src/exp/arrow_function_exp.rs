@@ -1,16 +1,13 @@
 use crate::express::{expect, is_ctrl_word, ok_box, parse_expression};
-use crate::node::Node::{
-    ArrayExpression, ArrowFunctionExpression, AssignmentExpression, AssignmentPattern, Identity,
-    NumericLiteral, ObjectExpression, ObjectProperty, SequenceExpression, StringLiteral,
-};
-use crate::node::{Extra, Node};
-use crate::parser::{IsArrowFunction, Parser};
-use std::cmp::PartialEq;
-use crate::token::Token;
 
-pub fn build_possible_arrow_function(parser: &mut Parser) -> Result<Box<Node>, String> {
+use crate::node::{ArrayExpression, ArrowFunctionExpression, AssignmentExpression, AssignmentPattern, Extra, Identity, Node, NumericLiteral, ObjectExpression, ObjectProperty, SequenceExpression, StringLiteral};
+use crate::parser::{IsArrowFunction, Parser};
+use crate::token::Token;
+use std::cmp::PartialEq;
+
+pub fn build_possible_arrow_function(parser: &mut Parser) -> Result<Box<dyn Node>, String> {
     let mut params = vec![];
-    let body: Box<Node>;
+    let body: Box<dyn Node>;
 
     parser.regex_allowed = true;
     expect(parser, "(")?;
@@ -23,14 +20,14 @@ pub fn build_possible_arrow_function(parser: &mut Parser) -> Result<Box<Node>, S
             parser.next()?;
             continue;
         } else if is_ctrl_word(&parser.current, "{") {
-            params.push(*build_possible_object(parser)?);
+            params.push(build_possible_object(parser)?);
         } else if is_ctrl_word(&parser.current, "(") {
             parser.is_arrow_function = IsArrowFunction::Impossible;
-            params.push(*parse_expression(parser, 0)?);
+            params.push(parse_expression(parser, 0)?);
         } else if is_ctrl_word(&parser.current, "[") {
-            params.push(*build_possible_array(parser)?);
+            params.push(build_possible_array(parser)?);
         } else {
-            let exp = *parse_expression(parser, 2)?;
+            let exp = parse_expression(parser, 2)?;
             if let Identity { .. } = &exp {
             } else if let AssignmentExpression { operator, .. } = &exp {
                 if operator != "=" {
@@ -51,12 +48,14 @@ pub fn build_possible_arrow_function(parser: &mut Parser) -> Result<Box<Node>, S
             if params.len() == 0 {
                 Err("syntax error, ()".to_string())
             } else if params.len() == 1 {
-                ok_box(params.remove(0))
+                Ok(params.remove(0))
             } else {
-                ok_box(SequenceExpression {
+                Ok(Box::new(SequenceExpression {
                     expressions: params,
-                    extra: Extra::Parenthesized,
-                })
+                    extra: Extra {
+                        parenthesized: true,
+                    },
+                }))
             }
         };
     }
@@ -71,11 +70,11 @@ pub fn build_possible_arrow_function(parser: &mut Parser) -> Result<Box<Node>, S
         body = parse_expression(parser, 2)?
     }
 
-    ok_box(ArrowFunctionExpression { params, body })
+    Ok(Box::new(ArrowFunctionExpression { params, body }))
 }
 
-fn build_possible_object(parser: &mut Parser) -> Result<Box<Node>, String> {
-    let mut properties = vec![];
+fn build_possible_object(parser: &mut Parser) -> Result<Box<dyn Node>, String> {
+    let mut properties:Vec<Box<dyn Node>> = vec![];
 
     expect(parser, "{")?;
     loop {
@@ -87,25 +86,25 @@ fn build_possible_object(parser: &mut Parser) -> Result<Box<Node>, String> {
             parser.next()?;
             continue;
         }
-        let key: Node;
+        let key: Box<dyn Node>;
 
         match &*parser.current {
             Token::Variable(s) => {
-                key = StringLiteral {
+                key = Box::new(StringLiteral {
                     value: s.to_string(),
-                };
+                });
             }
             Token::String(s) => {
                 parser.is_arrow_function = IsArrowFunction::Impossible;
-                key = StringLiteral {
+                key = Box::new(StringLiteral {
                     value: s.to_string(),
-                };
+                });
             }
             Token::Digit(s) => {
                 parser.is_arrow_function = IsArrowFunction::Impossible;
-                key = NumericLiteral {
+                key = Box::new(NumericLiteral {
                     value: s.to_string(),
-                };
+                });
             }
             _ => {
                 return Err("object property type error".to_string());
@@ -116,31 +115,31 @@ fn build_possible_object(parser: &mut Parser) -> Result<Box<Node>, String> {
             parser.regex_allowed = true;
             parser.next()?;
             if is_ctrl_word(&parser.current, "{") {
-                properties.push(ObjectProperty {
-                    key: Box::new(key),
+                properties.push(Box::new(ObjectProperty {
+                    key,
                     value: build_possible_object(parser)?,
-                });
+                }));
             } else if is_ctrl_word(&parser.current, "[") {
-                properties.push(ObjectProperty {
-                    key: Box::new(key),
+                properties.push(Box::new(ObjectProperty {
+                    key,
                     value: build_possible_array(parser)?,
-                });
+                }));
             } else {
                 parser.is_arrow_function = IsArrowFunction::Impossible;
-                properties.push(ObjectProperty {
-                    key: Box::new(key),
+                properties.push(Box::new(ObjectProperty {
+                    key,
                     value: parse_expression(parser, 2)?,
-                });
+                }));
             }
         } else if is_ctrl_word(&parser.current, "=") {
             parser.is_arrow_function = IsArrowFunction::Must;
             parser.regex_allowed = true;
             parser.next()?;
             let default_value = parse_expression(parser, 2)?;
-            properties.push(AssignmentPattern {
-                left: Box::new(key),
+            properties.push(Box::new(AssignmentPattern {
+                left: key,
                 right: default_value,
-            })
+            }))
         }
     }
 
@@ -148,8 +147,8 @@ fn build_possible_object(parser: &mut Parser) -> Result<Box<Node>, String> {
     Ok(Box::new(ObjectExpression { properties }))
 }
 
-fn build_possible_array(parser: &mut Parser) -> Result<Box<Node>, String> {
-    let mut elements: Vec<Node> = vec![];
+fn build_possible_array(parser: &mut Parser) -> Result<Box<dyn Node>, String> {
+    let mut elements: Vec<Box<dyn Node>> = vec![];
     parser.regex_allowed = true;
     parser.next()?;
     loop {
@@ -160,26 +159,26 @@ fn build_possible_array(parser: &mut Parser) -> Result<Box<Node>, String> {
             parser.next()?;
             continue;
         } else if is_ctrl_word(&parser.current, "{") {
-            elements.push(*build_possible_object(parser)?)
+            elements.push(build_possible_object(parser)?)
         } else if is_ctrl_word(&parser.current, "[") {
-            elements.push(*build_possible_array(parser)?)
+            elements.push(build_possible_array(parser)?)
         } else {
-            elements.push(*parse_expression(parser, 2)?)
+            elements.push(parse_expression(parser, 2)?)
         }
     }
     expect(parser, "]")?;
     Ok(Box::new(ArrayExpression { elements }))
 }
-
-fn convert_params(properties: Vec<Node>) {
+/*
+fn convert_params(properties: Vec<Box<dyn Node>>) {
     let mut result = vec![];
     for property in properties {
-        if let ObjectProperty { key, value } = property {
+        if let ObjectProperty { key, value } = property. {
             result.push(ObjectProperty { key, value })
         }
     }
 }
-
+*/
 #[cfg(test)]
 mod test_arrow_function {
     use crate::exp::arrow_function_exp::{
@@ -193,7 +192,7 @@ mod test_arrow_function {
         let mut parser = Parser::new("{a=1}".to_string())?;
         let r = build_possible_object(&mut parser)?;
         assert_eq!(parser.is_arrow_function, IsArrowFunction::Must);
-        println!("{:#?}", r);
+        // println!("{:#?}", r);
         Ok(())
     }
 
@@ -202,7 +201,7 @@ mod test_arrow_function {
         let mut parser = Parser::new("{a: {b: {c:1}}}".to_string())?;
         let r = build_possible_object(&mut parser)?;
         assert_eq!(parser.is_arrow_function, IsArrowFunction::Impossible);
-        println!("{:#?}", r);
+        // println!("{:#?}", r);
         Ok(())
     }
 
@@ -211,7 +210,7 @@ mod test_arrow_function {
         let mut parser = Parser::new("{a: {b: {c=1}}}".to_string())?;
         let r = build_possible_object(&mut parser)?;
         assert_eq!(parser.is_arrow_function, IsArrowFunction::Must);
-        println!("{:#?}", r);
+        // println!("{:#?}", r);
         Ok(())
     }
 
@@ -220,7 +219,7 @@ mod test_arrow_function {
         let mut parser = Parser::new("([{},a,b])".to_string())?;
         let r = build_possible_arrow_function(&mut parser)?;
         assert_eq!(parser.is_arrow_function, IsArrowFunction::Maybe);
-        println!("{:#?}", r);
+        // println!("{:#?}", r);
         Ok(())
     }
 
@@ -229,7 +228,7 @@ mod test_arrow_function {
         let mut parser = Parser::new("[{x: 1},a,b]".to_string())?;
         let r = build_possible_array(&mut parser)?;
         assert_eq!(parser.is_arrow_function, IsArrowFunction::Impossible);
-        println!("{:#?}", r);
+        // println!("{:#?}", r);
         Ok(())
     }
 
@@ -237,7 +236,6 @@ mod test_arrow_function {
     fn test_arrow_function_without_brackets() {
         let mut parser = Parser::new("let a = b => {}".to_string()).unwrap();
         let ast = parser.parse();
-        println!("{ast:#?}");
         assert_eq!(*parser.current, Token::EOF)
     }
 
@@ -245,7 +243,6 @@ mod test_arrow_function {
     fn test_arrow_function() {
         let mut parser = Parser::new("let a = (b,c,d) => {}".to_string()).unwrap();
         let ast = parser.parse();
-        println!("{ast:#?}");
         assert_eq!(*parser.current, Token::EOF)
     }
 
@@ -253,7 +250,6 @@ mod test_arrow_function {
     fn test_arrow_function2() {
         let mut parser = Parser::new("let a = ([a,b,c]) => {}".to_string()).unwrap();
         let ast = parser.parse();
-        println!("{ast:#?}");
         assert_eq!(*parser.current, Token::EOF)
     }
 
@@ -261,7 +257,6 @@ mod test_arrow_function {
     fn test_arrow_function3() {
         let mut parser = Parser::new("let a = ({a: {b: {c=1}}}) => {}".to_string()).unwrap();
         let ast = parser.parse();
-        println!("{ast:#?}");
         assert_eq!(*parser.current, Token::EOF)
     }
 

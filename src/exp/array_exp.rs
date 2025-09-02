@@ -1,9 +1,8 @@
-use crate::express::{expect, is_ctrl_word, ok_box, parse_expression};
-use crate::node::Node;
-use crate::node::Node::ArrayExpression;
+use crate::express::{expect, is_ctrl_word, parse_expression};
+use crate::node::{ArrayExpression, Node};
 use crate::parser::Parser;
 
-pub fn build_array(parser: &mut Parser) -> Result<Box<Node>, String> {
+pub fn build_array(parser: &mut Parser) -> Result<Box<dyn Node>, String> {
     let mut elements = vec![];
 
     expect(parser, "[")?;
@@ -16,10 +15,10 @@ pub fn build_array(parser: &mut Parser) -> Result<Box<Node>, String> {
             continue;
         }
         let item = parse_expression(parser, 2)?;
-        elements.push(*item);
+        elements.push(item);
     }
     expect(parser, "]")?;
-    ok_box(ArrayExpression { elements })
+    Ok(Box::new(ArrayExpression { elements }))
 }
 
 #[cfg(test)]
@@ -31,7 +30,6 @@ mod test_array {
     fn test_empty() {
         let mut parser = Parser::new("a = []".to_string()).unwrap();
         let ast = parser.parse();
-        println!("{ast:#?}");
         assert_eq!(*parser.current, Token::EOF)
     }
 
@@ -39,7 +37,6 @@ mod test_array {
     fn test_object() {
         let mut parser = Parser::new("a = [1,2,3]".to_string()).unwrap();
         let ast = parser.parse();
-        println!("{ast:#?}");
         assert_eq!(*parser.current, Token::EOF)
     }
 
@@ -47,7 +44,6 @@ mod test_array {
     fn test_object_call() {
         let mut parser = Parser::new("a = [1,2,3, [4,5]]".to_string()).unwrap();
         let ast = parser.parse();
-        println!("{ast:#?}");
         assert_eq!(*parser.current, Token::EOF)
     }
 }

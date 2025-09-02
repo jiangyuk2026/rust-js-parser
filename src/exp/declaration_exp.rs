@@ -1,14 +1,14 @@
 use crate::express::{expect_keys, is_ctrl_word, parse_expression};
-use crate::node::Node;
-use crate::node::Node::{VariableDeclaration, VariableDeclarator};
+use crate::node::{Identity, Node};
+use crate::node::{VariableDeclaration, VariableDeclarator};
 use crate::parser::Parser;
 use crate::token::Token;
 
-pub fn build_let(parser: &mut Parser) -> Result<Box<Node>, String> {
+pub fn build_let(parser: &mut Parser) -> Result<Box<dyn Node>, String> {
     let kind = expect_keys(&parser.current, &vec![Token::Var, Token::Let, Token::Const])?;
     parser.next()?;
     let mut declarations = vec![];
-    declarations.push(*build_declarator(parser)?);
+    declarations.push(build_declarator(parser)?);
     loop {
         let c2 = &*parser.current;
         match c2 {
@@ -16,7 +16,7 @@ pub fn build_let(parser: &mut Parser) -> Result<Box<Node>, String> {
                 "," => {
                     parser.regex_allowed = true;
                     parser.next()?;
-                    declarations.push(*build_declarator(parser)?);
+                    declarations.push(build_declarator(parser)?);
                 }
                 _ => break,
             },
@@ -29,10 +29,10 @@ pub fn build_let(parser: &mut Parser) -> Result<Box<Node>, String> {
     Ok(Box::new(VariableDeclaration { kind, declarations }))
 }
 
-fn build_declarator(parser: &mut Parser) -> Result<Box<Node>, String> {
+fn build_declarator(parser: &mut Parser) -> Result<Box<dyn Node>, String> {
     let id = &*parser.current;
     if let Token::Variable(s) = id {
-        let id = Box::new(Node::Identity {
+        let id = Box::new(Identity {
             name: s.to_string(),
         });
         parser.next()?;
@@ -59,7 +59,6 @@ mod test_let {
         let mut parser = Parser::new("let a = 1".to_string()).unwrap();
 
         let result = build_let(&mut parser);
-        println!("{result:#?}");
     }
 
     #[test]
@@ -67,7 +66,6 @@ mod test_let {
         let mut parser = Parser::new("let a = \"abce\"".to_string()).unwrap();
 
         let result = build_let(&mut parser);
-        println!("{result:#?}");
     }
 
     #[test]
@@ -75,7 +73,6 @@ mod test_let {
         let mut parser = Parser::new("let a = 1 + 2".to_string()).unwrap();
 
         let result = build_let(&mut parser);
-        println!("{result:#?}");
     }
 
     #[test]
@@ -83,6 +80,5 @@ mod test_let {
         let mut parser = Parser::new("let a = 3, b = 2".to_string()).unwrap();
 
         let result = build_let(&mut parser);
-        println!("{result:#?}");
     }
 }

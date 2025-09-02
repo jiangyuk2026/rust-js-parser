@@ -1,13 +1,13 @@
 use crate::express::{expect_keyword, is_ctrl_word, ok_box};
 use crate::node::Node;
-use crate::node::Node::{CatchClause, Identity, TryStatement};
+use crate::node::{CatchClause, Identity, TryStatement};
 use crate::parser::Parser;
 use crate::token::Token;
 
-pub fn build_try(parser: &mut Parser) -> Result<Box<Node>, String> {
-    let block: Box<Node>;
-    let handle: Option<Box<Node>>;
-    let finalizer: Option<Box<Node>>;
+pub fn build_try(parser: &mut Parser) -> Result<Box<dyn Node>, String> {
+    let block: Box<dyn Node>;
+    let handle: Option<Box<dyn Node>>;
+    let finalizer: Option<Box<dyn Node>>;
 
     expect_keyword(&parser.current, Token::Try)?;
     parser.next()?;
@@ -15,8 +15,8 @@ pub fn build_try(parser: &mut Parser) -> Result<Box<Node>, String> {
     block = Parser::parse_block(parser)?;
 
     if *parser.current == Token::Catch {
-        let param: Option<Box<Node>>;
-        let body: Box<Node>;
+        let param: Option<Box<dyn Node>>;
+        let body: Box<dyn Node>;
         parser.next()?;
         if is_ctrl_word(&parser.current, "(") {
             parser.next()?;
@@ -60,11 +60,11 @@ pub fn build_try(parser: &mut Parser) -> Result<Box<Node>, String> {
         return Err("expect catch or finally".to_string());
     }
 
-    ok_box(TryStatement {
+    Ok(Box::new(TryStatement {
         block,
         handle,
         finalizer,
-    })
+    }))
 }
 
 #[cfg(test)]
@@ -76,7 +76,6 @@ mod test_try_statement {
     fn try_catch_no_param() {
         let mut parser = Parser::new("try {} catch() {}".to_string()).unwrap();
         let ast = parser.parse();
-        println!("{ast:#?}");
         assert_eq!(*parser.current, Token::EOF)
     }
 
@@ -84,7 +83,6 @@ mod test_try_statement {
     fn try_catch() {
         let mut parser = Parser::new("try {} catch(a) {}".to_string()).unwrap();
         let ast = parser.parse();
-        println!("{ast:#?}");
         assert_eq!(*parser.current, Token::EOF)
     }
 
@@ -92,7 +90,6 @@ mod test_try_statement {
     fn try_catch_finally() {
         let mut parser = Parser::new("try {} catch(a) {} finally {}".to_string()).unwrap();
         let ast = parser.parse();
-        println!("{ast:#?}");
         assert_eq!(*parser.current, Token::EOF)
     }
 
@@ -100,7 +97,6 @@ mod test_try_statement {
     fn try_finally() {
         let mut parser = Parser::new("try {} finally {}".to_string()).unwrap();
         let ast = parser.parse();
-        println!("{ast:#?}");
         assert_eq!(*parser.current, Token::EOF)
     }
 }

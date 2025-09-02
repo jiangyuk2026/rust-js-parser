@@ -1,18 +1,15 @@
-use std::rc::Rc;
 use crate::exp::array_exp::build_array;
 use crate::exp::arrow_function_exp::build_possible_arrow_function;
 use crate::exp::function_exp::build_function;
 use crate::exp::object_exp::build_object;
-use crate::node::Node::{
-    BooleanLiteral, Identity, NewExpression, NullLiteral, RegExpLiteral, SequenceExpression,
-    TemplateElement, TemplateLiteral, ThisExpression, UnaryExpression,
-};
+use crate::node::{ArrowFunctionExpression, AssignmentExpression, BinaryExpression, BooleanLiteral, CallExpression, ConditionalExpression, Identity, LogicalExpression, MemberExpression, NewExpression, NullLiteral, NumericLiteral, RegExpLiteral, SequenceExpression, StringLiteral, TemplateElement, TemplateLiteral, ThisExpression, UnaryExpression, UpdateExpression};
 use crate::node::{Extra, Node};
 use crate::parser::Parser;
 use crate::token::{Token, is_keyword};
+use std::rc::Rc;
 
-pub fn parse_expression(parser: &mut Parser, min_level: u8) -> Result<Box<Node>, String> {
-    let mut left: Box<Node>;
+pub fn parse_expression(parser: &mut Parser, min_level: u8) -> Result<Box<dyn Node>, String> {
+    let mut left: Box<dyn Node>;
     if parser.is_identity_keyword && is_keyword(&parser.current) {
         left = Box::new(Identity {
             name: parser.current.to_string(),
@@ -26,7 +23,7 @@ pub fn parse_expression(parser: &mut Parser, min_level: u8) -> Result<Box<Node>,
         match s.as_str() {
             "++" | "--" => {
                 parser.next()?;
-                left = Box::new(Node::UpdateExpression {
+                left = Box::new(UpdateExpression {
                     operator,
                     prefix: true,
                     argument: parse_expression(parser, l + 1)?,
@@ -92,15 +89,15 @@ pub fn parse_expression(parser: &mut Parser, min_level: u8) -> Result<Box<Node>,
     } else if let Token::TemplateStr(s) = &*parser.current {
         left = Box::new(TemplateLiteral {
             expressions: vec![],
-            quasis: vec![TemplateElement {
+            quasis: vec![Box::new(TemplateElement {
                 value: s.to_string(),
-            }],
+            })],
         });
         parser.next()?;
     } else if *parser.current == Token::New {
         parser.next()?;
         let callee = parse_expression(parser, 18)?;
-        let mut arguments = vec![];
+        let mut arguments:Vec<Box<dyn Node>> = vec![];
         if is_ctrl_word(&parser.current, "(") {
             parser.next()?;
             loop {
@@ -110,7 +107,7 @@ pub fn parse_expression(parser: &mut Parser, min_level: u8) -> Result<Box<Node>,
                 if is_ctrl_word(&parser.current, ",") {
                     parser.next()?;
                 }
-                arguments.push(*parse_expression(parser, 2)?)
+                arguments.push(parse_expression(parser, 2)?)
             }
             expect(parser, ")")?;
         }
@@ -129,12 +126,12 @@ pub fn parse_expression(parser: &mut Parser, min_level: u8) -> Result<Box<Node>,
         });
         parser.next()?;
     } else if let Token::Digit(d) = &*parser.current {
-        left = Box::new(Node::NumericLiteral {
+        left = Box::new(NumericLiteral {
             value: d.to_string(),
         });
         parser.next()?;
     } else if let Token::String(d) = &*parser.current {
-        left = Box::new(Node::StringLiteral {
+        left = Box::new(StringLiteral {
             value: d.to_string(),
         });
         parser.next()?;
@@ -188,15 +185,19 @@ pub fn parse_expression(parser: &mut Parser, min_level: u8) -> Result<Box<Node>,
                     if let SequenceExpression { expressions, .. } = *left {
                         let mut exp = vec![];
                         exp.extend(expressions);
-                        exp.push(*right);
+                        exp.push(right);
                         left = Box::new(SequenceExpression {
                             expressions: exp,
-                            extra: Extra::Parenthesized,
+                            extra: Extra {
+                                parenthesized: false,
+                            },
                         })
                     } else {
                         left = Box::new(SequenceExpression {
-                            expressions: vec![*left, *right],
-                            extra: Extra::Parenthesized,
+                            expressions: vec![left, right],
+                            extra: Extra {
+                                parenthesized: false,
+                            },
                         })
                     }
                 }
@@ -204,7 +205,7 @@ pub fn parse_expression(parser: &mut Parser, min_level: u8) -> Result<Box<Node>,
                     parser.regex_allowed = true;
                     parser.next()?;
                     let right = parse_expression(parser, l)?;
-                    left = Box::new(Node::AssignmentExpression {
+                    left = Box::new(AssignmentExpression {
                         operator: s.to_string(),
                         left,
                         right,
@@ -219,8 +220,8 @@ pub fn parse_expression(parser: &mut Parser, min_level: u8) -> Result<Box<Node>,
                     } else {
                         right = parse_expression(parser, 2)?;
                     }
-                    left = Box::new(Node::ArrowFunctionExpression {
-                        params: vec![*left],
+                    left = Box::new(ArrowFunctionExpression {
+                        params: vec![left],
                         body: right,
                     })
                 }
@@ -228,7 +229,7 @@ pub fn parse_expression(parser: &mut Parser, min_level: u8) -> Result<Box<Node>,
                     parser.next()?;
                     parser.is_identity_keyword = true;
                     let right = parse_expression(parser, l + 1)?;
-                    left = Box::new(Node::MemberExpression {
+                    left = Box::new(MemberExpression {
                         computed: false,
                         object: left,
                         property: right,
@@ -239,18 +240,20 @@ pub fn parse_expression(parser: &mut Parser, min_level: u8) -> Result<Box<Node>,
                     parser.regex_allowed = true;
                     parser.next()?;
                     let right = parse_expression(parser, l + 1)?;
-                    left = Box::new(Node::BinaryExpression {
+                    left = Box::new(BinaryExpression {
                         operator: s.to_string(),
                         left,
                         right,
-                        extra: Extra::Parenthesized,
+                        extra: Extra {
+                            parenthesized: false,
+                        },
                     })
                 }
                 "&&" | "||" => {
                     parser.regex_allowed = true;
                     parser.next()?;
                     let right = parse_expression(parser, l + 1)?;
-                    left = Box::new(Node::LogicalExpression {
+                    left = Box::new(LogicalExpression {
                         operator: s.to_string(),
                         left,
                         right,
@@ -258,7 +261,7 @@ pub fn parse_expression(parser: &mut Parser, min_level: u8) -> Result<Box<Node>,
                 }
                 "++" | "--" => {
                     parser.next()?;
-                    left = Box::new(Node::UpdateExpression {
+                    left = Box::new(UpdateExpression {
                         operator: s.to_string(),
                         prefix: false,
                         argument: left,
@@ -270,7 +273,7 @@ pub fn parse_expression(parser: &mut Parser, min_level: u8) -> Result<Box<Node>,
                     let consequent = parse_expression(parser, l)?;
                     expect(parser, ":")?;
                     let alternate = parse_expression(parser, l)?;
-                    left = Box::new(Node::ConditionalExpression {
+                    left = Box::new(ConditionalExpression {
                         test: left,
                         consequent,
                         alternate,
@@ -279,7 +282,7 @@ pub fn parse_expression(parser: &mut Parser, min_level: u8) -> Result<Box<Node>,
                 "(" => {
                     parser.regex_allowed = true;
                     parser.next()?;
-                    let mut arguments: Vec<Node> = vec![];
+                    let mut arguments: Vec<Box<dyn Node>> = vec![];
                     loop {
                         let next = &parser.current;
                         if is_ctrl_word(&next, ")") {
@@ -287,7 +290,7 @@ pub fn parse_expression(parser: &mut Parser, min_level: u8) -> Result<Box<Node>,
                             break;
                         }
                         let express = parse_expression(parser, 2)?;
-                        arguments.push(*express);
+                        arguments.push(express);
                         let current = &parser.current.clone();
                         if is_ctrl_word(&current, ",") {
                             parser.next()?;
@@ -297,7 +300,7 @@ pub fn parse_expression(parser: &mut Parser, min_level: u8) -> Result<Box<Node>,
                             break;
                         }
                     }
-                    left = Box::new(Node::CallExpression {
+                    left = Box::new(CallExpression {
                         callee: left,
                         arguments,
                     });
@@ -307,7 +310,7 @@ pub fn parse_expression(parser: &mut Parser, min_level: u8) -> Result<Box<Node>,
                     parser.next()?;
                     let right = parse_expression(parser, 0)?;
                     expect(parser, "]")?;
-                    left = Box::new(Node::MemberExpression {
+                    left = Box::new(MemberExpression {
                         computed: true,
                         object: left,
                         property: right,
@@ -326,11 +329,13 @@ pub fn parse_expression(parser: &mut Parser, min_level: u8) -> Result<Box<Node>,
                 parser.regex_allowed = true;
                 parser.next()?;
                 let right = parse_expression(parser, l + 1)?;
-                left = Box::new(Node::BinaryExpression {
+                left = Box::new(BinaryExpression {
                     operator: operator.to_string(),
                     left,
                     right,
-                    extra: Extra::Parenthesized,
+                    extra: Extra {
+                        parenthesized: false,
+                    },
                 })
             }
             _ => {
@@ -341,12 +346,12 @@ pub fn parse_expression(parser: &mut Parser, min_level: u8) -> Result<Box<Node>,
     Ok(left)
 }
 
-pub fn ok_box(node: Node) -> Result<Box<Node>, String> {
-    Ok(Box::new(node))
+pub fn ok_box(node: Box<dyn Node>) -> Result<Box<dyn Node>, String> {
+    Ok(node)
 }
 
-pub fn box_(node: Node) -> Box<Node> {
-    Box::new(node)
+pub fn box_(node: Box<dyn Node>) -> Box<dyn Node> {
+    node
 }
 
 fn get_level(token: &Token) -> Result<u8, String> {

@@ -1,16 +1,16 @@
 use crate::express::{expect, expect_keyword, is_ctrl_word, ok_box, parse_expression};
 use crate::node::Node;
-use crate::node::Node::{
+use crate::node::{
     ArrayPattern, AssignmentPattern, FunctionDeclaration, FunctionExpression, Identity,
     ObjectPattern, ObjectProperty,
 };
 use crate::parser::Parser;
 use crate::token::Token;
 
-pub fn build_function(parser: &mut Parser, is_declaration: bool) -> Result<Box<Node>, String> {
-    let id: Option<Box<Node>>;
+pub fn build_function(parser: &mut Parser, is_declaration: bool) -> Result<Box<dyn Node>, String> {
+    let id: Option<Box<dyn Node>>;
     let mut params;
-    let body: Box<Node>;
+    let body: Box<dyn Node>;
 
     expect_keyword(&parser.current, Token::Function)?;
     parser.next()?;
@@ -28,17 +28,17 @@ pub fn build_function(parser: &mut Parser, is_declaration: bool) -> Result<Box<N
     params = handle_function_params(parser)?;
     body = Parser::parse_block(parser)?;
     if is_declaration {
-        return ok_box(FunctionDeclaration {
+        return Ok(Box::new(FunctionDeclaration {
             id: id.unwrap(),
             params,
             body,
-        });
+        }));
     }
-    ok_box(FunctionExpression { id, params, body })
+    Ok(Box::new(FunctionExpression { id, params, body }))
 }
 
-pub fn handle_function_params(parser: &mut Parser) -> Result<Vec<Node>, String> {
-    let mut params: Vec<Node> = vec![];
+pub fn handle_function_params(parser: &mut Parser) -> Result<Vec<Box<dyn Node>>, String> {
+    let mut params: Vec<Box<dyn Node>> = vec![];
 
     expect(parser, "(")?;
     loop {
@@ -49,18 +49,18 @@ pub fn handle_function_params(parser: &mut Parser) -> Result<Vec<Node>, String> 
             parser.next()?;
             continue;
         } else if let Token::Variable(s) = &*parser.current {
-            let param = Identity {
+            let param = Box::new(Identity {
                 name: s.to_string(),
-            };
+            });
             parser.next()?;
             if is_ctrl_word(&parser.current, "=") {
                 parser.regex_allowed = true;
                 parser.next()?;
                 let default_value = parse_expression(parser, 2)?;
-                params.push(AssignmentPattern {
-                    left: Box::new(param),
+                params.push(Box::new(AssignmentPattern {
+                    left: param,
                     right: default_value,
-                });
+                }));
             } else {
                 params.push(param);
             }
@@ -75,12 +75,12 @@ pub fn handle_function_params(parser: &mut Parser) -> Result<Vec<Node>, String> 
     Ok(params)
 }
 
-fn handle_object(parser: &mut Parser) -> Result<Node, String> {
+fn handle_object(parser: &mut Parser) -> Result<Box<dyn Node>, String> {
     if !is_ctrl_word(&parser.current, "{") {
         return Err("function handle_object expect {".to_string());
     }
     parser.next()?;
-    let mut properties = vec![];
+    let mut properties: Vec<Box<dyn Node>> = vec![];
     loop {
         if is_ctrl_word(&parser.current, "}") {
             break;
@@ -92,19 +92,19 @@ fn handle_object(parser: &mut Parser) -> Result<Node, String> {
                 parser.next()?;
                 if is_ctrl_word(&parser.current, "{") {
                     let right = handle_object(parser)?;
-                    properties.push(ObjectProperty {
+                    properties.push(Box::new(ObjectProperty {
                         key: Box::new(Identity {
                             name: name.to_string(),
                         }),
-                        value: Box::new(right),
-                    })
+                        value: right,
+                    }))
                 } else if is_ctrl_word(&parser.current, "[") {
-                    properties.push(ObjectProperty {
+                    properties.push(Box::new(ObjectProperty {
                         key: Box::new(Identity {
                             name: name.to_string(),
                         }),
-                        value: Box::new(handle_array(parser)?),
-                    })
+                        value: handle_array(parser)?,
+                    }))
                 } else {
                     return Err("handle_object expect { or [ after :".to_string());
                 }
@@ -112,7 +112,7 @@ fn handle_object(parser: &mut Parser) -> Result<Node, String> {
                 parser.regex_allowed = true;
                 parser.next()?;
                 let right = parse_expression(parser, 2)?;
-                properties.push(ObjectProperty {
+                properties.push(Box::new(ObjectProperty {
                     key: Box::new(Identity {
                         name: name.to_string(),
                     }),
@@ -122,18 +122,18 @@ fn handle_object(parser: &mut Parser) -> Result<Node, String> {
                         }),
                         right,
                     }),
-                })
+                }))
             } else if is_ctrl_word(&parser.current, ",") {
                 parser.regex_allowed = true;
                 parser.next()?;
-                properties.push(ObjectProperty {
+                properties.push(Box::new(ObjectProperty {
                     key: Box::new(Identity {
                         name: name.to_string(),
                     }),
                     value: Box::new(Identity {
                         name: name.to_string(),
                     }),
-                })
+                }))
             } else {
                 return Err("handle_object syntax error".to_string());
             }
@@ -145,11 +145,11 @@ fn handle_object(parser: &mut Parser) -> Result<Node, String> {
         return Err("function param expect }".to_string());
     }
     parser.next()?;
-    Ok(ObjectPattern { properties })
+    Ok(Box::new(ObjectPattern { properties }))
 }
 
-fn handle_array(parser: &mut Parser) -> Result<Node, String> {
-    let mut elements = vec![];
+fn handle_array(parser: &mut Parser) -> Result<Box<dyn Node>, String> {
+    let mut elements: Vec<Box<dyn Node>> = vec![];
     if !is_ctrl_word(&parser.current, "[") {
         return Err("function handle_array expect [".to_string());
     }
@@ -160,16 +160,16 @@ fn handle_array(parser: &mut Parser) -> Result<Node, String> {
         } else if is_ctrl_word(&parser.current, ",") {
             parser.next()?;
         } else if let Token::Variable(s) = &*parser.current {
-            let name = Identity {
+            let name = Box::new(Identity {
                 name: s.to_string(),
-            };
+            });
             parser.next()?;
             if is_ctrl_word(&parser.current, "=") {
                 parser.next()?;
-                elements.push(AssignmentPattern {
-                    left: Box::new(name),
+                elements.push(Box::new(AssignmentPattern {
+                    left: name,
                     right: parse_expression(parser, 2)?,
-                });
+                }));
             } else {
                 elements.push(name);
             }
@@ -185,7 +185,7 @@ fn handle_array(parser: &mut Parser) -> Result<Node, String> {
         return Err("function handle_array expect ]".to_string());
     }
     parser.next()?;
-    Ok(ArrayPattern { elements })
+    Ok(Box::new(ArrayPattern { elements }))
 }
 
 #[cfg(test)]
@@ -197,7 +197,6 @@ mod test {
     fn test_function() {
         let mut parser = Parser::new("function a() {}".to_string()).unwrap();
         let ast = parser.parse();
-        println!("{ast:#?}");
         assert_eq!(*parser.current, Token::EOF)
     }
 
@@ -205,7 +204,6 @@ mod test {
     fn function_expression_with_name() {
         let mut parser = Parser::new("let a = function a() {}".to_string()).unwrap();
         let ast = parser.parse();
-        println!("{ast:#?}");
         assert_eq!(*parser.current, Token::EOF)
     }
 
@@ -213,7 +211,6 @@ mod test {
     fn function_expression_without_name() {
         let mut parser = Parser::new("let a = function () {}".to_string()).unwrap();
         let ast = parser.parse();
-        println!("{ast:#?}");
         assert_eq!(*parser.current, Token::EOF)
     }
 
@@ -231,7 +228,6 @@ mod test {
     fn test_function_param2() {
         let mut parser = Parser::new("function a(b=1, c) {}".to_string()).unwrap();
         let ast = parser.parse();
-        println!("{ast:#?}");
         assert_eq!(*parser.current, Token::EOF)
     }
 
@@ -247,7 +243,6 @@ mod test {
     fn test_function_deep() -> Result<(), String> {
         let mut parser = Parser::new("function a({a=2}) {let z = 1}".to_string()).unwrap();
         let ast = parser.parse()?;
-        println!("{ast:#?}");
         assert_eq!(*parser.current, Token::EOF);
         Ok(())
     }
@@ -256,7 +251,6 @@ mod test {
     fn test_function_deep2() -> Result<(), String> {
         let mut parser = Parser::new("function a({b: {c = 3}}) {}".to_string()).unwrap();
         let ast = parser.parse()?;
-        println!("{ast:#?}");
         assert_eq!(*parser.current, Token::EOF);
         Ok(())
     }
@@ -265,25 +259,24 @@ mod test {
     fn test_function_array() -> Result<(), String> {
         let mut parser = Parser::new("function a([a,b,c]) {let z = 1}".to_string()).unwrap();
         let ast = parser.parse()?;
-        println!("{ast:#?}");
         assert_eq!(*parser.current, Token::EOF);
         Ok(())
     }
 
     #[test]
     fn test_function_array2() -> Result<(), String> {
-        let mut parser = Parser::new("function a([b = {c: 3}], d) {let z = 1}".to_string()).unwrap();
+        let mut parser =
+            Parser::new("function a([b = {c: 3}], d) {let z = 1}".to_string()).unwrap();
         let ast = parser.parse()?;
-        println!("{ast:#?}");
         assert_eq!(*parser.current, Token::EOF);
         Ok(())
     }
 
     #[test]
     fn test_function_mix() -> Result<(), String> {
-        let mut parser = Parser::new("function b(c, {d: {e: [f, g, {h = 3}]}}) {}".to_string()).unwrap();
+        let mut parser =
+            Parser::new("function b(c, {d: {e: [f, g, {h = 3}]}}) {}".to_string()).unwrap();
         let ast = parser.parse()?;
-        println!("{ast:#?}");
         assert_eq!(*parser.current, Token::EOF);
         Ok(())
     }
@@ -292,7 +285,6 @@ mod test {
     fn test_function_array3() -> Result<(), String> {
         let mut parser = Parser::new("function a2([[b,c,d]]) {}".to_string()).unwrap();
         let ast = parser.parse()?;
-        println!("{ast:#?}");
         assert_eq!(*parser.current, Token::EOF);
         Ok(())
     }

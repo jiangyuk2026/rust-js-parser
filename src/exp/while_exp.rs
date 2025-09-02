@@ -1,12 +1,12 @@
-use crate::express::{expect, expect_keyword, is_ctrl_word, ok_box, parse_expression};
+use crate::express::{expect, expect_keyword, ok_box, parse_expression};
 use crate::node::Node;
-use crate::node::Node::{DoWhileStatement, EmptyStatement, IfStatement, WhileStatement};
+use crate::node::{DoWhileStatement, WhileStatement};
 use crate::parser::Parser;
 use crate::token::Token;
 
-pub fn build_while(parser: &mut Parser) -> Result<Box<Node>, String> {
-    let test: Box<Node>;
-    let body: Box<Node>;
+pub fn build_while(parser: &mut Parser) -> Result<Box<dyn Node>, String> {
+    let test: Box<dyn Node>;
+    let body: Box<dyn Node>;
 
     expect_keyword(&parser.current, Token::While)?;
     parser.next()?;
@@ -15,12 +15,12 @@ pub fn build_while(parser: &mut Parser) -> Result<Box<Node>, String> {
     test = parse_expression(parser, 0)?;
     expect(parser, ")")?;
     body = parser.build_maybe_empty_body()?;
-    ok_box(WhileStatement { test, body })
+    Ok(Box::new(WhileStatement { test, body }))
 }
 
-pub fn build_do_while(parser: &mut Parser) -> Result<Box<Node>, String> {
-    let body: Box<Node>;
-    let test: Box<Node>;
+pub fn build_do_while(parser: &mut Parser) -> Result<Box<dyn Node>, String> {
+    let body: Box<dyn Node>;
+    let test: Box<dyn Node>;
     expect_keyword(&parser.current, Token::Do)?;
     parser.next()?;
     body = Parser::parse_block(parser)?;
@@ -30,7 +30,7 @@ pub fn build_do_while(parser: &mut Parser) -> Result<Box<Node>, String> {
     expect(parser, "(")?;
     test = parse_expression(parser, 0)?;
     expect(parser, ")")?;
-    ok_box(DoWhileStatement { body, test })
+    Ok(Box::new(DoWhileStatement { body, test }))
 }
 
 #[cfg(test)]
@@ -42,7 +42,6 @@ mod test_while_statement {
     fn test_while() {
         let mut parser = Parser::new("while (a) {}".to_string()).unwrap();
         let ast = parser.parse();
-        println!("{ast:#?}");
         assert_eq!(*parser.current, Token::EOF)
     }
 
@@ -50,7 +49,6 @@ mod test_while_statement {
     fn test_while_empty() {
         let mut parser = Parser::new("while (1==1);".to_string()).unwrap();
         let ast = parser.parse();
-        println!("{ast:#?}");
         assert_eq!(*parser.current, Token::EOF)
     }
 
@@ -58,7 +56,6 @@ mod test_while_statement {
     fn test_do_while() {
         let mut parser = Parser::new("do{}while(1)".to_string()).unwrap();
         let ast = parser.parse();
-        println!("{ast:#?}");
         assert_eq!(*parser.current, Token::EOF)
     }
 }

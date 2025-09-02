@@ -1,12 +1,12 @@
 use crate::express::{expect, expect_keyword, is_ctrl_word, ok_box, parse_expression};
 use crate::node::Node;
-use crate::node::Node::{SwitchCase, SwitchStatement};
+use crate::node::{SwitchCase, SwitchStatement};
 use crate::parser::Parser;
 use crate::token::Token;
 
-pub fn build_switch(parser: &mut Parser) -> Result<Box<Node>, String> {
-    let discriminant: Box<Node>;
-    let mut cases: Vec<Node> = vec![];
+pub fn build_switch(parser: &mut Parser) -> Result<Box<dyn Node>, String> {
+    let discriminant: Box<dyn Node>;
+    let mut cases: Vec<Box<dyn Node>> = vec![];
 
     expect_keyword(&parser.current, Token::Switch)?;
     parser.next()?;
@@ -18,8 +18,8 @@ pub fn build_switch(parser: &mut Parser) -> Result<Box<Node>, String> {
 
     loop {
         if *parser.current == Token::Case || *parser.current == Token::Default {
-            let test: Option<Box<Node>>;
-            let mut consequent: Vec<Node>;
+            let test: Option<Box<dyn Node>>;
+            let mut consequent: Vec<Box<dyn Node>>;
 
             if *parser.current == Token::Case {
                 parser.regex_allowed = true;
@@ -31,20 +31,20 @@ pub fn build_switch(parser: &mut Parser) -> Result<Box<Node>, String> {
             }
             expect(parser, ":")?;
             if is_ctrl_word(&parser.current, "{") {
-                consequent = vec![*Parser::parse_block(parser)?];
+                consequent = vec![Parser::parse_block(parser)?];
             } else {
                 consequent = Parser::parse_statement_list(parser)?;
             }
-            cases.push(SwitchCase { test, consequent });
+            cases.push(Box::new(SwitchCase { test, consequent }));
         } else {
             break;
         }
     }
     expect(parser, "}")?;
-    ok_box(SwitchStatement {
+    Ok(Box::new(SwitchStatement {
         discriminant,
         cases,
-    })
+    }))
 }
 
 #[cfg(test)]
@@ -56,7 +56,6 @@ mod test_switch_statement {
     fn test_switch() {
         let mut parser = Parser::new("switch (a) {}".to_string()).unwrap();
         let ast = parser.parse();
-        println!("{ast:#?}");
         assert_eq!(*parser.current, Token::EOF)
     }
 
@@ -69,7 +68,6 @@ mod test_switch_statement {
         "#;
         let mut parser = Parser::new(str.to_string()).unwrap();
         let ast = parser.parse();
-        println!("{ast:#?}");
         assert_eq!(*parser.current, Token::EOF)
     }
 
@@ -85,7 +83,6 @@ mod test_switch_statement {
         }"#;
         let mut parser = Parser::new(str.to_string()).unwrap();
         let ast = parser.parse();
-        println!("{ast:#?}");
         assert_eq!(*parser.current, Token::EOF)
     }
 
@@ -123,7 +120,6 @@ switch (a) {
         let mut parser = Parser::new(str.to_string()).unwrap();
         let ast = parser.parse();
         println!("{:#?}", parser.loc);
-        println!("{ast:#?}");
         assert_eq!(*parser.current, Token::EOF)
     }
 }

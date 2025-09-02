@@ -8,7 +8,7 @@ use crate::exp::while_exp::{build_do_while, build_while};
 use crate::express::{expect, is_ctrl_word, parse_expression};
 use crate::lex::{Lex, Loc};
 use crate::node::Node;
-use crate::node::Node::{
+use crate::node::{
     BlockStatement, BreakStatement, ContinueStatement, EmptyStatement, ReturnStatement,
     ThrowStatement,
 };
@@ -42,6 +42,7 @@ pub struct Parser {
     pub is_identity_keyword: bool,
     pub is_identity_finally: bool,
     pub total_word_count: usize,
+    pub parenthesized: bool,
     lex: Lex,
 }
 
@@ -88,6 +89,7 @@ impl Parser {
             is_identity_keyword: false,
             is_identity_finally: false,
             total_word_count: 0,
+            parenthesized: false,
             lex,
         };
 
@@ -111,29 +113,29 @@ impl Parser {
         self.last_loc_line == self.loc.start.line
     }
 
-    pub fn parse_statement(&mut self) -> Result<Node, String> {
-        let node;
+    pub fn parse_statement(&mut self) -> Result<Box<dyn Node>, String> {
+        let node:Box<dyn Node>;
         match *self.current {
             Token::EOF => return Err("expect statement".to_string()),
-            Token::Var | Token::Let | Token::Const => node = *build_let(self)?,
-            Token::For => node = *build_for(self)?,
-            Token::Function => node = *build_function(self, true)?,
-            Token::If => node = *build_if(self)?,
-            Token::While => node = *build_while(self)?,
-            Token::Do => node = *build_do_while(self)?,
-            Token::Try => node = *build_try(self)?,
-            Token::Switch => node = *build_switch(self)?,
+            Token::Var | Token::Let | Token::Const => node = build_let(self)?,
+            Token::For => node = build_for(self)?,
+            Token::Function => node = build_function(self, true)?,
+            Token::If => node = build_if(self)?,
+            Token::While => node = build_while(self)?,
+            Token::Do => node = build_do_while(self)?,
+            Token::Try => node = build_try(self)?,
+            Token::Switch => node = build_switch(self)?,
             Token::Return => {
                 self.regex_allowed = true;
                 self.next()?;
                 if !self.is_same_line() || *self.current == Token::EOF {
-                    node = ReturnStatement { argument: None }
+                    node = Box::new(ReturnStatement { argument: None })
                 } else if is_ctrl_word(&self.current, "}") || is_ctrl_word(&self.current, ";") {
-                    node = ReturnStatement { argument: None }
+                    node = Box::new(ReturnStatement { argument: None })
                 } else {
-                    node = ReturnStatement {
+                    node = Box::new(ReturnStatement {
                         argument: Some(parse_expression(self, 0)?),
-                    };
+                    });
                     if is_ctrl_word(&self.current, ";") {
                         self.next()?;
                     }
@@ -141,14 +143,14 @@ impl Parser {
             }
             Token::Break => {
                 self.next()?;
-                node = BreakStatement { label: None };
+                node = Box::new(BreakStatement { label: None });
                 if is_ctrl_word(&self.current, ";") {
                     self.next()?;
                 }
             }
             Token::Continue => {
                 self.next()?;
-                node = ContinueStatement { label: None };
+                node = Box::new(ContinueStatement { label: None });
                 if is_ctrl_word(&self.current, ";") {
                     self.next()?;
                 }
@@ -162,15 +164,15 @@ impl Parser {
                 if is_ctrl_word(&self.current, "}") || is_ctrl_word(&self.current, ";") {
                     return Err("Unexpected token".to_string());
                 }
-                node = ThrowStatement {
+                node = Box::new(ThrowStatement {
                     argument: parse_expression(self, 0)?,
-                };
+                });
                 if is_ctrl_word(&self.current, ";") {
                     self.next()?;
                 }
             }
             _ => {
-                node = *parse_expression(self, 0)?;
+                node = parse_expression(self, 0)?;
                 if is_ctrl_word(&self.current, ";") {
                     self.next()?;
                 }
@@ -179,20 +181,20 @@ impl Parser {
         Ok(node)
     }
 
-    pub fn parse_statement_list(&mut self) -> Result<Vec<Node>, String> {
-        let mut ast = vec![];
+    pub fn parse_statement_list(&mut self) -> Result<Vec<Box<dyn Node>>, String> {
+        let mut ast:Vec<Box<dyn Node>> = vec![];
         loop {
             match &*self.current {
                 Token::EOF => break,
                 Token::Case | Token::Default => break,
                 Token::Control(s) => match s.as_str() {
                     "{"=> {
-                        ast.push(*self.parse_block()?);
+                        ast.push(self.parse_block()?);
                         continue;
                     }
                     "}" => break,
                     ";" => {
-                        ast.push(EmptyStatement {});
+                        ast.push(Box::new(EmptyStatement {}));
                         self.regex_allowed = true;
                         self.next()?;
                         continue;
@@ -207,8 +209,8 @@ impl Parser {
         Ok(ast)
     }
 
-    pub fn parse_block(&mut self) -> Result<Box<Node>, String> {
-        let consequent: Box<Node>;
+    pub fn parse_block(&mut self) -> Result<Box<dyn Node>, String> {
+        let consequent: Box<dyn Node>;
         if !is_ctrl_word(&self.current, "{") {
             return Err("handle_block expect {".to_string());
         }
@@ -221,8 +223,8 @@ impl Parser {
         Ok(consequent)
     }
 
-    pub fn build_maybe_empty_body(&mut self) -> Result<Box<Node>, String> {
-        let body: Box<Node>;
+    pub fn build_maybe_empty_body(&mut self) -> Result<Box<dyn Node>, String> {
+        let body: Box<dyn Node>;
         if is_ctrl_word(&self.current, "{") {
             body = Parser::parse_block(self)?;
         } else if is_ctrl_word(&self.current, ";") {
@@ -230,12 +232,12 @@ impl Parser {
             self.regex_allowed = true;
             self.next()?;
         } else {
-            body = Box::new(self.parse_statement()?);
+            body = self.parse_statement()?;
         }
         Ok(body)
     }
 
-    pub fn parse(&mut self) -> Result<Vec<Node>, String> {
+    pub fn parse(&mut self) -> Result<Vec<Box<dyn Node>>, String> {
         Parser::parse_statement_list(self)
     }
 }
