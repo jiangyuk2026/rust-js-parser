@@ -1,6 +1,10 @@
 use crate::express::{expect, is_ctrl_word, ok_box, parse_expression};
 
-use crate::node::{ArrayExpression, ArrowFunctionExpression, AssignmentExpression, AssignmentPattern, Extra, Identity, Node, NumericLiteral, ObjectExpression, ObjectProperty, SequenceExpression, StringLiteral};
+use crate::node::{
+    ArrayExpression, ArrowFunctionExpression, AssignmentExpression, AssignmentPattern, Extra,
+    Identity, Node, NumericLiteral, ObjectExpression, ObjectProperty, SequenceExpression,
+    StringLiteral,
+};
 use crate::parser::{IsArrowFunction, Parser};
 use crate::token::Token;
 use std::cmp::PartialEq;
@@ -28,9 +32,9 @@ pub fn build_possible_arrow_function(parser: &mut Parser) -> Result<Box<dyn Node
             params.push(build_possible_array(parser)?);
         } else {
             let exp = parse_expression(parser, 2)?;
-            if let Identity { .. } = &exp {
-            } else if let AssignmentExpression { operator, .. } = &exp {
-                if operator != "=" {
+            if let Some(_) = exp.as_any().downcast_ref::<Identity>() {
+            } else if let Some(assignmentExp) = exp.as_any().downcast_ref::<AssignmentExpression>()  {
+                if assignmentExp.operator != "=" {
                     parser.is_arrow_function = IsArrowFunction::Impossible;
                 }
             } else {
@@ -52,9 +56,7 @@ pub fn build_possible_arrow_function(parser: &mut Parser) -> Result<Box<dyn Node
             } else {
                 Ok(Box::new(SequenceExpression {
                     expressions: params,
-                    extra: Extra {
-                        parenthesized: true,
-                    },
+                    extra: None,
                 }))
             }
         };
@@ -74,7 +76,7 @@ pub fn build_possible_arrow_function(parser: &mut Parser) -> Result<Box<dyn Node
 }
 
 fn build_possible_object(parser: &mut Parser) -> Result<Box<dyn Node>, String> {
-    let mut properties:Vec<Box<dyn Node>> = vec![];
+    let mut properties: Vec<Box<dyn Node>> = vec![];
 
     expect(parser, "{")?;
     loop {
@@ -92,18 +94,21 @@ fn build_possible_object(parser: &mut Parser) -> Result<Box<dyn Node>, String> {
             Token::Variable(s) => {
                 key = Box::new(StringLiteral {
                     value: s.to_string(),
+                    extra: None,
                 });
             }
             Token::String(s) => {
                 parser.is_arrow_function = IsArrowFunction::Impossible;
                 key = Box::new(StringLiteral {
                     value: s.to_string(),
+                    extra: None,
                 });
             }
             Token::Digit(s) => {
                 parser.is_arrow_function = IsArrowFunction::Impossible;
                 key = Box::new(NumericLiteral {
                     value: s.to_string(),
+                    extra: None,
                 });
             }
             _ => {
@@ -144,7 +149,10 @@ fn build_possible_object(parser: &mut Parser) -> Result<Box<dyn Node>, String> {
     }
 
     expect(parser, "}")?;
-    Ok(Box::new(ObjectExpression { properties }))
+    Ok(Box::new(ObjectExpression {
+        properties,
+        extra: None,
+    }))
 }
 
 fn build_possible_array(parser: &mut Parser) -> Result<Box<dyn Node>, String> {
@@ -167,7 +175,10 @@ fn build_possible_array(parser: &mut Parser) -> Result<Box<dyn Node>, String> {
         }
     }
     expect(parser, "]")?;
-    Ok(Box::new(ArrayExpression { elements }))
+    Ok(Box::new(ArrayExpression {
+        elements,
+        extra: None,
+    }))
 }
 /*
 fn convert_params(properties: Vec<Box<dyn Node>>) {

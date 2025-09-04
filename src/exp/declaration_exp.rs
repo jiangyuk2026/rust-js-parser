@@ -34,6 +34,7 @@ fn build_declarator(parser: &mut Parser) -> Result<Box<dyn Node>, String> {
     if let Token::Variable(s) = id {
         let id = Box::new(Identity {
             name: s.to_string(),
+            extra: None
         });
         parser.next()?;
         let equal = &parser.current;

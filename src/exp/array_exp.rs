@@ -18,7 +18,7 @@ pub fn build_array(parser: &mut Parser) -> Result<Box<dyn Node>, String> {
         elements.push(item);
     }
     expect(parser, "]")?;
-    Ok(Box::new(ArrayExpression { elements }))
+    Ok(Box::new(ArrayExpression { elements, extra: None }))
 }
 
 #[cfg(test)]

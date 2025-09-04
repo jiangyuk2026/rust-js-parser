@@ -28,6 +28,7 @@ pub fn build_try(parser: &mut Parser) -> Result<Box<dyn Node>, String> {
             } else if let Token::Variable(s) = &*parser.current {
                 param = Some(Box::new(Identity {
                     name: s.to_string(),
+                    extra: None
                 }));
                 parser.next()?;
                 if is_ctrl_word(&parser.current, ")") {

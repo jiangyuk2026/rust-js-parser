@@ -2,7 +2,12 @@ use crate::exp::array_exp::build_array;
 use crate::exp::arrow_function_exp::build_possible_arrow_function;
 use crate::exp::function_exp::build_function;
 use crate::exp::object_exp::build_object;
-use crate::node::{ArrowFunctionExpression, AssignmentExpression, BinaryExpression, BooleanLiteral, CallExpression, ConditionalExpression, Identity, LogicalExpression, MemberExpression, NewExpression, NullLiteral, NumericLiteral, RegExpLiteral, SequenceExpression, StringLiteral, TemplateElement, TemplateLiteral, ThisExpression, UnaryExpression, UpdateExpression};
+use crate::node::{
+    ArrowFunctionExpression, AssignmentExpression, BinaryExpression, BooleanLiteral,
+    CallExpression, ConditionalExpression, Identity, LogicalExpression, MemberExpression,
+    NewExpression, NullLiteral, NumericLiteral, RegExpLiteral, SequenceExpression, StringLiteral,
+    TemplateElement, TemplateLiteral, ThisExpression, UnaryExpression, UpdateExpression,
+};
 use crate::node::{Extra, Node};
 use crate::parser::Parser;
 use crate::token::{Token, is_keyword};
@@ -13,6 +18,7 @@ pub fn parse_expression(parser: &mut Parser, min_level: u8) -> Result<Box<dyn No
     if parser.is_identity_keyword && is_keyword(&parser.current) {
         left = Box::new(Identity {
             name: parser.current.to_string(),
+            extra: None,
         });
         parser.next()?;
     } else if *parser.current == Token::Function {
@@ -65,25 +71,33 @@ pub fn parse_expression(parser: &mut Parser, min_level: u8) -> Result<Box<dyn No
         })
     } else if *parser.current == Token::True {
         parser.next()?;
-        left = Box::new(BooleanLiteral { value: true });
+        left = Box::new(BooleanLiteral {
+            value: true,
+            extra: None,
+        });
     } else if *parser.current == Token::False {
         parser.next()?;
-        left = Box::new(BooleanLiteral { value: false });
+        left = Box::new(BooleanLiteral {
+            value: false,
+            extra: None,
+        });
     } else if *parser.current == Token::This {
         parser.next()?;
         left = Box::new(ThisExpression {});
     } else if *parser.current == Token::Null {
         parser.next()?;
-        left = Box::new(NullLiteral {});
+        left = Box::new(NullLiteral { extra: None });
     } else if *parser.current == Token::Undefined {
         parser.next()?;
         left = Box::new(Identity {
             name: "undefined".to_string(),
+            extra: None,
         });
     } else if let Token::Regex(pattern, flags) = &*parser.current {
         left = Box::new(RegExpLiteral {
             pattern: pattern.to_string(),
             flags: flags.to_string(),
+            extra: None,
         });
         parser.next()?;
     } else if let Token::TemplateStr(s) = &*parser.current {
@@ -91,13 +105,15 @@ pub fn parse_expression(parser: &mut Parser, min_level: u8) -> Result<Box<dyn No
             expressions: vec![],
             quasis: vec![Box::new(TemplateElement {
                 value: s.to_string(),
+                extra: None,
             })],
+            extra: None,
         });
         parser.next()?;
     } else if *parser.current == Token::New {
         parser.next()?;
         let callee = parse_expression(parser, 18)?;
-        let mut arguments:Vec<Box<dyn Node>> = vec![];
+        let mut arguments: Vec<Box<dyn Node>> = vec![];
         if is_ctrl_word(&parser.current, "(") {
             parser.next()?;
             loop {
@@ -123,16 +139,19 @@ pub fn parse_expression(parser: &mut Parser, min_level: u8) -> Result<Box<dyn No
     } else if let Token::Variable(s) = &*parser.current {
         left = Box::new(Identity {
             name: s.to_string(),
+            extra: None,
         });
         parser.next()?;
     } else if let Token::Digit(d) = &*parser.current {
         left = Box::new(NumericLiteral {
             value: d.to_string(),
+            extra: None,
         });
         parser.next()?;
     } else if let Token::String(d) = &*parser.current {
         left = Box::new(StringLiteral {
             value: d.to_string(),
+            extra: None,
         });
         parser.next()?;
     } else {
@@ -182,22 +201,18 @@ pub fn parse_expression(parser: &mut Parser, min_level: u8) -> Result<Box<dyn No
                     parser.regex_allowed = true;
                     parser.next()?;
                     let right = parse_expression(parser, l + 1)?;
-                    if let SequenceExpression { expressions, .. } = *left {
-                        let mut exp = vec![];
-                        exp.extend(expressions);
+                    if let Some(t) = left.as_any().downcast_ref::<SequenceExpression>() {
+                        let mut exp: Vec<Box<dyn Node>> = vec![];
+                        exp.extend(t.expressions.iter().cloned());
                         exp.push(right);
                         left = Box::new(SequenceExpression {
                             expressions: exp,
-                            extra: Extra {
-                                parenthesized: false,
-                            },
+                            extra: None,
                         })
                     } else {
                         left = Box::new(SequenceExpression {
                             expressions: vec![left, right],
-                            extra: Extra {
-                                parenthesized: false,
-                            },
+                            extra: None,
                         })
                     }
                 }

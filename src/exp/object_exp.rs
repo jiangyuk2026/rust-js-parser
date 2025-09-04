@@ -25,22 +25,26 @@ pub fn build_object(parser: &mut Parser) -> Result<Box<dyn Node>, String> {
         if is_keyword(&parser.current) {
             key = Box::new(Identity {
                 name: parser.current.to_string(),
+                extra: None
             })
         } else {
             match &*parser.current {
                 Token::Variable(s) => {
                     key = Box::new(StringLiteral {
                         value: s.to_string(),
+                        extra: None
                     });
                 }
                 Token::String(s) => {
                     key = Box::new(StringLiteral {
                         value: s.to_string(),
+                        extra: None
                     });
                 }
                 Token::Digit(s) => {
                     key = Box::new(NumericLiteral {
                         value: s.to_string(),
+                        extra: None
                     });
                 }
                 _ => {
@@ -73,7 +77,7 @@ pub fn build_object(parser: &mut Parser) -> Result<Box<dyn Node>, String> {
     }
 
     expect(parser, "}")?;
-    Ok(Box::new(ObjectExpression { properties }))
+    Ok(Box::new(ObjectExpression { properties, extra: None }))
 }
 
 #[cfg(test)]

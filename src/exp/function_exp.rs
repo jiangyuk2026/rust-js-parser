@@ -18,6 +18,7 @@ pub fn build_function(parser: &mut Parser, is_declaration: bool) -> Result<Box<d
     if let Token::Variable(s) = &*parser.current {
         id = Some(Box::new(Identity {
             name: s.to_string(),
+            extra: None
         }));
         parser.next()?;
     } else if is_declaration {
@@ -51,6 +52,7 @@ pub fn handle_function_params(parser: &mut Parser) -> Result<Vec<Box<dyn Node>>,
         } else if let Token::Variable(s) = &*parser.current {
             let param = Box::new(Identity {
                 name: s.to_string(),
+                extra: None
             });
             parser.next()?;
             if is_ctrl_word(&parser.current, "=") {
@@ -95,6 +97,7 @@ fn handle_object(parser: &mut Parser) -> Result<Box<dyn Node>, String> {
                     properties.push(Box::new(ObjectProperty {
                         key: Box::new(Identity {
                             name: name.to_string(),
+                            extra: None
                         }),
                         value: right,
                     }))
@@ -102,6 +105,7 @@ fn handle_object(parser: &mut Parser) -> Result<Box<dyn Node>, String> {
                     properties.push(Box::new(ObjectProperty {
                         key: Box::new(Identity {
                             name: name.to_string(),
+                            extra: None
                         }),
                         value: handle_array(parser)?,
                     }))
@@ -115,10 +119,12 @@ fn handle_object(parser: &mut Parser) -> Result<Box<dyn Node>, String> {
                 properties.push(Box::new(ObjectProperty {
                     key: Box::new(Identity {
                         name: name.to_string(),
+                        extra: None
                     }),
                     value: Box::new(AssignmentPattern {
                         left: Box::new(Identity {
                             name: name.to_string(),
+                            extra: None
                         }),
                         right,
                     }),
@@ -129,9 +135,11 @@ fn handle_object(parser: &mut Parser) -> Result<Box<dyn Node>, String> {
                 properties.push(Box::new(ObjectProperty {
                     key: Box::new(Identity {
                         name: name.to_string(),
+                        extra: None
                     }),
                     value: Box::new(Identity {
                         name: name.to_string(),
+                        extra: None
                     }),
                 }))
             } else {
@@ -162,6 +170,7 @@ fn handle_array(parser: &mut Parser) -> Result<Box<dyn Node>, String> {
         } else if let Token::Variable(s) = &*parser.current {
             let name = Box::new(Identity {
                 name: s.to_string(),
+                extra: None
             });
             parser.next()?;
             if is_ctrl_word(&parser.current, "=") {

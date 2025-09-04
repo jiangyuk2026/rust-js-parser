@@ -1,5 +1,5 @@
 use crate::exp::declaration_exp::build_let;
-use crate::express::{expect, expect_keyword, is_ctrl_word, ok_box, parse_expression};
+use crate::express::{expect, expect_keyword, is_ctrl_word, parse_expression};
 use crate::node::Node;
 use crate::node::{
     EmptyStatement, ForInStatement, ForStatement, Identity, VariableDeclaration, VariableDeclarator,
@@ -33,7 +33,7 @@ pub fn build_for(parser: &mut Parser) -> Result<Box<dyn Node>, String> {
     } else if let Token::Variable(_) = &*parser.current {
         init = parse_expression(parser, 0)?;
         if *parser.current == Token::In {
-            if !matches!(*init, Identity { .. }) {
+            if !init.as_any().is::<Identity>() {
                 return Err("for in: syntax error".to_string());
             }
             parser.regex_allowed = true;
@@ -88,12 +88,15 @@ pub fn build_for(parser: &mut Parser) -> Result<Box<dyn Node>, String> {
 }
 
 fn is_single_variable_without_value(node: &dyn Node) -> Result<bool, String> {
-    if let VariableDeclaration { declarations, .. } = node {
-        if declarations.len() != 1 {
+    if let Some(t) = node.as_any().downcast_ref::<VariableDeclaration>() {
+        if t.declarations.len() != 1 {
             return Err("for in: syntax error, more than one variable".to_string());
         }
-        if let VariableDeclarator { init, .. } = &declarations[0] {
-            if init.is_some() {
+        if let Some(declarator) = t.declarations[0]
+            .as_any()
+            .downcast_ref::<VariableDeclarator>()
+        {
+            if declarator.init.is_some() {
                 return Err("for in: syntax error".to_string());
             }
         }
