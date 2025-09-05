@@ -52,7 +52,6 @@ pub fn lex_next(lex: &mut Lex) -> Result<(Rc<Token>, Loc, Vec<Token>, usize), St
     let mut current;
     let mut loc;
     loop {
-        println!("loop");
         (current, loc) = lex.next()?;
         total += 1;
         /*if self.last_loc_line> 9320 {
@@ -65,7 +64,6 @@ pub fn lex_next(lex: &mut Lex) -> Result<(Rc<Token>, Loc, Vec<Token>, usize), St
             break;
         }
     }
-    println!("{:#?}", loc);
     Ok((Rc::new(current), loc, comment_list, total))
 }
 

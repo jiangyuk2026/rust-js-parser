@@ -33,7 +33,8 @@ pub fn build_possible_arrow_function(parser: &mut Parser) -> Result<Box<dyn Node
         } else {
             let exp = parse_expression(parser, 2)?;
             if let Some(_) = exp.as_any().downcast_ref::<Identity>() {
-            } else if let Some(assignmentExp) = exp.as_any().downcast_ref::<AssignmentExpression>()  {
+            } else if let Some(assignmentExp) = exp.as_any().downcast_ref::<AssignmentExpression>()
+            {
                 if assignmentExp.operator != "=" {
                     parser.is_arrow_function = IsArrowFunction::Impossible;
                 }
@@ -52,11 +53,15 @@ pub fn build_possible_arrow_function(parser: &mut Parser) -> Result<Box<dyn Node
             if params.len() == 0 {
                 Err("syntax error, ()".to_string())
             } else if params.len() == 1 {
-                Ok(params.remove(0))
+                let mut n = params.remove(0);
+                n.set_parenthesized(true);
+                Ok(n)
             } else {
                 Ok(Box::new(SequenceExpression {
                     expressions: params,
-                    extra: None,
+                    extra: Some(Extra {
+                        parenthesized: true,
+                    }),
                 }))
             }
         };
