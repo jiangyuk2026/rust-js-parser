@@ -44,7 +44,7 @@ pub enum Token {
 
     Variable(String),
     Digit(String),
-    String(String),
+    String(String, bool),
     Control(String),
     Comment(String),
     TemplateStr(String),
@@ -65,7 +65,7 @@ impl Display for Token {
                 write!(f, "{}", s)
             }
             Token::Comment(_) => write!(f, "Comment"),
-            Token::String(_) => write!(f, "String"),
+            Token::String(_, __) => write!(f, "String"),
             Token::EOF => write!(f, "EOF"),
 
             Token::Var => write!(f, "var"),

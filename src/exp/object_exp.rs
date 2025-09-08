@@ -30,14 +30,15 @@ pub fn build_object(parser: &mut Parser) -> Result<Box<dyn Node>, String> {
         } else {
             match &*parser.current {
                 Token::Variable(s) => {
-                    key = Box::new(StringLiteral {
-                        value: s.to_string(),
+                    key = Box::new(Identity {
+                        name: s.to_string(),
                         extra: None
                     });
                 }
-                Token::String(s) => {
+                Token::String(s, is_single_quoted) => {
                     key = Box::new(StringLiteral {
                         value: s.to_string(),
+                        is_single_quoted: *is_single_quoted,
                         extra: None
                     });
                 }

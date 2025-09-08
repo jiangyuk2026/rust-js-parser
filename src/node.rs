@@ -1,3 +1,4 @@
+use crate::lex::Loc;
 use crate::token::Token;
 use std::any::Any;
 use std::fmt::{Debug, Formatter, Pointer};
@@ -27,6 +28,7 @@ where
 pub trait Node: NodeClone + Debug {
     fn as_any(&self) -> &dyn Any;
     fn set_parenthesized(&mut self, value: bool) {}
+    fn print_node(&self) -> String;
 }
 
 impl Clone for Box<dyn Node> {
@@ -47,6 +49,9 @@ impl Node for EmptyStatement {
     fn as_any(&self) -> &dyn Any {
         self
     }
+    fn print_node(&self) -> String {
+        "".to_string()
+    }
 }
 
 #[derive(Clone, Debug)]
@@ -63,6 +68,9 @@ impl Node for Identity {
         self.extra = Some(Extra {
             parenthesized: value,
         });
+    }
+    fn print_node(&self) -> String {
+        self.name.clone()
     }
 }
 
@@ -81,11 +89,15 @@ impl Node for NumericLiteral {
             parenthesized: value,
         });
     }
+    fn print_node(&self) -> String {
+        self.value.clone()
+    }
 }
 
 #[derive(Clone, Debug)]
 pub struct StringLiteral {
     pub value: String,
+    pub is_single_quoted: bool,
     pub extra: Option<Extra>,
 }
 
@@ -97,6 +109,12 @@ impl Node for StringLiteral {
         self.extra = Some(Extra {
             parenthesized: value,
         });
+    }
+    fn print_node(&self) -> String {
+        if self.is_single_quoted {
+            return "'".to_string() + &self.value.clone() + "'";
+        }
+        "\"".to_string() + &self.value.clone() + "\""
     }
 }
 
@@ -115,6 +133,13 @@ impl Node for BooleanLiteral {
             parenthesized: value,
         });
     }
+    fn print_node(&self) -> String {
+        if self.value {
+            "true".to_string()
+        } else {
+            "false".to_string()
+        }
+    }
 }
 
 #[derive(Clone, Debug)]
@@ -130,6 +155,9 @@ impl Node for NullLiteral {
         self.extra = Some(Extra {
             parenthesized: value,
         });
+    }
+    fn print_node(&self) -> String {
+        "null".to_string()
     }
 }
 
@@ -149,6 +177,9 @@ impl Node for RegExpLiteral {
             parenthesized: value,
         });
     }
+    fn print_node(&self) -> String {
+        "/".to_string() + &self.pattern.clone() + "/" + &self.flags
+    }
 }
 
 #[derive(Clone, Debug)]
@@ -167,6 +198,9 @@ impl Node for TemplateLiteral {
             parenthesized: value,
         });
     }
+    fn print_node(&self) -> String {
+        "TemplateLiteral".to_string()
+    }
 }
 
 #[derive(Clone, Debug)]
@@ -178,6 +212,9 @@ pub struct TemplateElement {
 impl Node for TemplateElement {
     fn as_any(&self) -> &dyn Any {
         self
+    }
+    fn print_node(&self) -> String {
+        "TemplateElement".to_string()
     }
 }
 
@@ -191,6 +228,10 @@ impl Node for ArrayExpression {
     fn as_any(&self) -> &dyn Any {
         self
     }
+    fn print_node(&self) -> String {
+        let a: Vec<String> = self.elements.iter().map(|node| node.print_node()).collect();
+        "[".to_string() + &a.join(",") + "]"
+    }
 }
 
 #[derive(Clone, Debug)]
@@ -203,6 +244,10 @@ impl Node for ObjectExpression {
     fn as_any(&self) -> &dyn Any {
         self
     }
+    fn print_node(&self) -> String {
+        let a: Vec<String> = self.properties.iter().map(|node| node.print_node()).collect();
+        "{".to_string() + &a.join(",") + "}"
+    }
 }
 
 #[derive(Clone, Debug)]
@@ -214,6 +259,9 @@ pub struct ObjectProperty {
 impl Node for ObjectProperty {
     fn as_any(&self) -> &dyn Any {
         self
+    }
+    fn print_node(&self) -> String {
+        self.key.print_node() + ":" + &self.value.print_node()
     }
 }
 
@@ -228,6 +276,10 @@ impl Node for ObjectMethod {
     fn as_any(&self) -> &dyn Any {
         self
     }
+    fn print_node(&self) -> String {
+        let a: Vec<String> = self.params.iter().map(|node| node.print_node()).collect();
+        self.key.print_node() + "(" + &a.join("") + ")" + &self.body.print_node()
+    }
 }
 
 #[derive(Clone, Debug)]
@@ -239,6 +291,10 @@ impl Node for ObjectPattern {
     fn as_any(&self) -> &dyn Any {
         self
     }
+    fn print_node(&self) -> String {
+        let a: Vec<String> = self.properties.iter().map(|node| node.print_node()).collect();
+        "{".to_string() + &a.join(",") + "}"
+    }
 }
 
 #[derive(Clone, Debug)]
@@ -249,6 +305,10 @@ pub struct ArrayPattern {
 impl Node for ArrayPattern {
     fn as_any(&self) -> &dyn Any {
         self
+    }
+    fn print_node(&self) -> String {
+        let a: Vec<String> = self.elements.iter().map(|node| node.print_node()).collect();
+        "[".to_string() + &a.join(",") + "]"
     }
 }
 
@@ -262,6 +322,10 @@ impl Node for SequenceExpression {
     fn as_any(&self) -> &dyn Any {
         self
     }
+    fn print_node(&self) -> String {
+        let a: Vec<String> = self.expressions.iter().map(|node| node.print_node()).collect();
+        a.join(",")
+    }
 }
 
 #[derive(Clone, Debug)]
@@ -273,6 +337,10 @@ pub struct VariableDeclaration {
 impl Node for VariableDeclaration {
     fn as_any(&self) -> &dyn Any {
         self
+    }
+    fn print_node(&self) -> String {
+        let a: Vec<String> = self.declarations.iter().map(|node| node.print_node()).collect();
+        self.kind.to_string() + " " + &a.join(",")
     }
 }
 
@@ -286,6 +354,13 @@ impl Node for VariableDeclarator {
     fn as_any(&self) -> &dyn Any {
         self
     }
+    fn print_node(&self) -> String {
+        if let Some(init) = &self.init {
+            self.id.print_node() + " = " + &init.print_node()
+        } else {
+            self.id.print_node()
+        }
+    }
 }
 
 #[derive(Clone, Debug)]
@@ -293,11 +368,17 @@ pub struct AssignmentExpression {
     pub left: Box<dyn Node>,
     pub operator: String,
     pub right: Box<dyn Node>,
+    pub loc: Loc,
 }
 
 impl Node for AssignmentExpression {
     fn as_any(&self) -> &dyn Any {
         self
+    }
+    fn print_node(&self) -> String {
+        let a = self.left.print_node();
+        let b = self.right.print_node();
+        format!("/*{}*/{}{}{}", self.loc.start.line, a, self.operator, b)
     }
 }
 
@@ -313,6 +394,9 @@ impl Node for BinaryExpression {
     fn as_any(&self) -> &dyn Any {
         self
     }
+    fn print_node(&self) -> String {
+        self.left.print_node() + " " + &self.operator + " " + &self.right.print_node()
+    }
 }
 
 #[derive(Clone, Debug)]
@@ -325,6 +409,9 @@ pub struct LogicalExpression {
 impl Node for LogicalExpression {
     fn as_any(&self) -> &dyn Any {
         self
+    }
+    fn print_node(&self) -> String {
+        self.left.print_node() + " " + &self.operator + " " + &self.right.print_node()
     }
 }
 
@@ -339,6 +426,12 @@ impl Node for UnaryExpression {
     fn as_any(&self) -> &dyn Any {
         self
     }
+    fn print_node(&self) -> String {
+        if self.prefix {
+            return self.operator.clone() + " " + &self.argument.print_node();
+        }
+        "UnaryExpression prefix=false".to_string()
+    }
 }
 
 #[derive(Clone, Debug)]
@@ -351,6 +444,12 @@ pub struct UpdateExpression {
 impl Node for UpdateExpression {
     fn as_any(&self) -> &dyn Any {
         self
+    }
+    fn print_node(&self) -> String {
+        if self.prefix {
+            return self.operator.clone() + &self.argument.print_node();
+        }
+        self.argument.print_node() + &self.operator.to_string()
     }
 }
 
@@ -365,6 +464,12 @@ impl Node for MemberExpression {
     fn as_any(&self) -> &dyn Any {
         self
     }
+    fn print_node(&self) -> String {
+        if self.computed {
+            return self.object.print_node() + "[" + &self.property.print_node() + "]";
+        }
+        self.object.print_node() + "." + &self.property.print_node()
+    }
 }
 
 #[derive(Clone, Debug)]
@@ -378,6 +483,9 @@ impl Node for ConditionalExpression {
     fn as_any(&self) -> &dyn Any {
         self
     }
+    fn print_node(&self) -> String {
+        self.test.print_node() + "?" + &self.consequent.print_node() + ":" + &self.alternate.print_node()
+    }
 }
 
 #[derive(Clone, Debug)]
@@ -390,6 +498,10 @@ impl Node for CallExpression {
     fn as_any(&self) -> &dyn Any {
         self
     }
+    fn print_node(&self) -> String {
+        let a: Vec<String> = self.arguments.iter().map(|node| node.print_node()).collect();
+        self.callee.print_node() + "(" + &a.join(",") + ")"
+    }
 }
 
 #[derive(Clone, Debug)]
@@ -401,6 +513,10 @@ pub struct NewExpression {
 impl Node for NewExpression {
     fn as_any(&self) -> &dyn Any {
         self
+    }
+    fn print_node(&self) -> String {
+        let a: Vec<String> = self.arguments.iter().map(|node| node.print_node()).collect();
+        "new ".to_string() + &self.callee.print_node() + "(" + &a.join(",") + ")"
     }
 }
 
@@ -416,6 +532,17 @@ impl Node for ForStatement {
     fn as_any(&self) -> &dyn Any {
         self
     }
+    fn print_node(&self) -> String {
+        "for".to_string()
+            + "("
+            + &self.init.print_node()
+            + ";"
+            + &self.test.print_node()
+            + ";"
+            + &self.update.print_node()
+            + ")"
+            + &self.body.print_node()
+    }
 }
 
 #[derive(Clone, Debug)]
@@ -429,6 +556,15 @@ impl Node for ForInStatement {
     fn as_any(&self) -> &dyn Any {
         self
     }
+    fn print_node(&self) -> String {
+        "for".to_string()
+            + "("
+            + &self.left.print_node()
+            + " in "
+            + &self.right.print_node()
+            + ")"
+            + &self.body.print_node()
+    }
 }
 
 #[derive(Clone, Debug)]
@@ -441,6 +577,9 @@ impl Node for WhileStatement {
     fn as_any(&self) -> &dyn Any {
         self
     }
+    fn print_node(&self) -> String {
+        "while(".to_string() + &self.test.print_node() + ")" + &self.body.print_node()
+    }
 }
 
 #[derive(Clone, Debug)]
@@ -452,6 +591,9 @@ pub struct DoWhileStatement {
 impl Node for DoWhileStatement {
     fn as_any(&self) -> &dyn Any {
         self
+    }
+    fn print_node(&self) -> String {
+        "do{".to_string() + &self.body.print_node() + "}while(" + &self.test.print_node() + ")"
     }
 }
 
@@ -466,6 +608,10 @@ impl Node for FunctionDeclaration {
     fn as_any(&self) -> &dyn Any {
         self
     }
+    fn print_node(&self) -> String {
+        let a: Vec<String> = self.params.iter().map(|node| node.print_node()).collect();
+        "function ".to_string() + &self.id.print_node() + "(" + &a.join(", ") + ")" + &self.body.print_node()
+    }
 }
 
 #[derive(Clone, Debug)]
@@ -473,11 +619,21 @@ pub struct FunctionExpression {
     pub id: Option<Box<dyn Node>>,
     pub params: Vec<Box<dyn Node>>,
     pub body: Box<dyn Node>,
+    pub loc: Loc,
 }
 
 impl Node for FunctionExpression {
     fn as_any(&self) -> &dyn Any {
         self
+    }
+    fn print_node(&self) -> String {
+        let a: Vec<String> = self.params.iter().map(|node| node.print_node()).collect();
+        "/*".to_string()
+            + &self.loc.start.line.to_string()
+            + "*/function("
+            + &a.join(", ")
+            + ")"
+            + &self.body.print_node()
     }
 }
 
@@ -491,6 +647,10 @@ impl Node for ArrowFunctionExpression {
     fn as_any(&self) -> &dyn Any {
         self
     }
+    fn print_node(&self) -> String {
+        let a: Vec<String> = self.params.iter().map(|node| node.print_node()).collect();
+        "(".to_string() + &a.join(", ") + ")=>" + &self.body.print_node()
+    }
 }
 
 #[derive(Clone, Debug)]
@@ -499,6 +659,9 @@ pub struct ThisExpression {}
 impl Node for ThisExpression {
     fn as_any(&self) -> &dyn Any {
         self
+    }
+    fn print_node(&self) -> String {
+        "this".to_string()
     }
 }
 
@@ -512,6 +675,9 @@ impl Node for AssignmentPattern {
     fn as_any(&self) -> &dyn Any {
         self
     }
+    fn print_node(&self) -> String {
+        self.left.print_node() + "=" + &self.right.print_node()
+    }
 }
 
 #[derive(Clone, Debug)]
@@ -522,6 +688,11 @@ pub struct BlockStatement {
 impl Node for BlockStatement {
     fn as_any(&self) -> &dyn Any {
         self
+    }
+    fn print_node(&self) -> String {
+        let a: Vec<String> = self.body.iter().map(|node| node.print_node()).collect();
+
+        "{".to_string() + &a.join("\n") + "}"
     }
 }
 
@@ -536,6 +707,17 @@ impl Node for IfStatement {
     fn as_any(&self) -> &dyn Any {
         self
     }
+    fn print_node(&self) -> String {
+        if let Some(alternate) = &self.alternate {
+            return "if(".to_string()
+                + &self.test.print_node()
+                + ")"
+                + &self.consequent.print_node()
+                + " else "
+                + &alternate.print_node();
+        }
+        "if(".to_string() + &self.test.print_node() + ")" + &self.consequent.print_node()
+    }
 }
 
 #[derive(Clone, Debug)]
@@ -549,6 +731,18 @@ impl Node for TryStatement {
     fn as_any(&self) -> &dyn Any {
         self
     }
+    fn print_node(&self) -> String {
+        let text = "try".to_string() + &self.block.print_node();
+        let mut catch_text = "".to_string();
+        let mut finally_text = "".to_string();
+        if let Some(handle) = &self.handle {
+            catch_text = handle.print_node()
+        }
+        if let Some(finalizer) = &self.finalizer {
+            finally_text = finalizer.print_node();
+        }
+        text + &catch_text + &finally_text
+    }
 }
 
 #[derive(Clone, Debug)]
@@ -561,6 +755,12 @@ impl Node for CatchClause {
     fn as_any(&self) -> &dyn Any {
         self
     }
+    fn print_node(&self) -> String {
+        if let Some(param) = &self.param {
+            return "catch(".to_string() + &param.print_node() + ")" + &self.body.print_node();
+        }
+        "catch()".to_string() + &self.body.print_node()
+    }
 }
 
 #[derive(Clone, Debug)]
@@ -571,6 +771,12 @@ pub struct ReturnStatement {
 impl Node for ReturnStatement {
     fn as_any(&self) -> &dyn Any {
         self
+    }
+    fn print_node(&self) -> String {
+        if let Some(argument) = &self.argument {
+            return "return ".to_string() + &argument.print_node();
+        }
+        "return".to_string()
     }
 }
 
@@ -584,6 +790,10 @@ impl Node for SwitchStatement {
     fn as_any(&self) -> &dyn Any {
         self
     }
+    fn print_node(&self) -> String {
+        let a: Vec<String> = self.cases.iter().map(|node| node.print_node()).collect();
+        "switch(".to_string() + &self.discriminant.print_node() + "){" + &a.join(", ") + "}"
+    }
 }
 
 #[derive(Clone, Debug)]
@@ -595,6 +805,13 @@ pub struct SwitchCase {
 impl Node for SwitchCase {
     fn as_any(&self) -> &dyn Any {
         self
+    }
+    fn print_node(&self) -> String {
+        let a: Vec<String> = self.consequent.iter().map(|node| node.print_node()).collect();
+        if let Some(test) = &self.test {
+            return "case ".to_string() + &test.print_node() + ":\n" + &a.join("\n");
+        }
+        "case ".to_string() + ":\n" + &a.join("\n")
     }
 }
 
@@ -608,6 +825,9 @@ impl Node for LabeledStatement {
     fn as_any(&self) -> &dyn Any {
         self
     }
+    fn print_node(&self) -> String {
+        "unsupported LabeledStatement".to_string()
+    }
 }
 
 #[derive(Clone, Debug)]
@@ -618,6 +838,12 @@ pub struct BreakStatement {
 impl Node for BreakStatement {
     fn as_any(&self) -> &dyn Any {
         self
+    }
+    fn print_node(&self) -> String {
+        if let Some(label) = &self.label {
+            return "break ".to_string() + &label.print_node();
+        }
+        "break".to_string()
     }
 }
 
@@ -630,6 +856,12 @@ impl Node for ContinueStatement {
     fn as_any(&self) -> &dyn Any {
         self
     }
+    fn print_node(&self) -> String {
+        if let Some(label) = &self.label {
+            return "continue ".to_string() + &label.print_node();
+        }
+        "continue".to_string()
+    }
 }
 
 #[derive(Clone, Debug)]
@@ -640,5 +872,8 @@ pub struct ThrowStatement {
 impl Node for ThrowStatement {
     fn as_any(&self) -> &dyn Any {
         self
+    }
+    fn print_node(&self) -> String {
+        "throw ".to_string() + &self.argument.print_node()
     }
 }

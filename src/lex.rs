@@ -202,13 +202,13 @@ impl Lex {
                     if escaped {
                         escaped = false;
                         if c == 'r' {
-                            word.push('\r');
+                            word.push_str("\\r");
                         }
                         if c == 'n' {
-                            word.push('\n');
+                            word.push_str("\\n");
                         }
                         if c == 't' {
-                            word.push('\t');
+                            word.push_str("\\t");
                         }
                     } else {
                         word.push(c);
@@ -228,9 +228,10 @@ impl Lex {
                 '\\' => {
                     if escaped {
                         escaped = false;
-                        word.push(c);
+                        word.push_str("\\");
                     } else {
                         escaped = true;
+                        word.push_str("\\");
                     }
                 }
                 _ => {
@@ -239,7 +240,7 @@ impl Lex {
                 }
             }
         }
-        Ok(Token::String(word))
+        Ok(Token::String(word, s == '\''))
     }
 
     fn read_divide_regex_comment(&mut self) -> Result<Token, String> {
@@ -598,7 +599,7 @@ mod tests {
     fn test_string_single() -> Result<(), String> {
         let input = "'abcdefjie'";
         let mut lex = Lex::new(input.to_string());
-        assert_eq!(lex.next()?.0, Token::String("abcdefjie".to_string()));
+        assert_eq!(lex.next()?.0, Token::String("abcdefjie".to_string(), true));
         Ok(())
     }
 
@@ -606,7 +607,7 @@ mod tests {
     fn test_string_single_newline() -> Result<(), String> {
         let input = "'abcdefjie\\nxx'";
         let mut lex = Lex::new(input.to_string());
-        assert_eq!(lex.next()?.0, Token::String("abcdefjie\nxx".to_string()));
+        assert_eq!(lex.next()?.0, Token::String("abcdefjie\nxx".to_string(), true));
         Ok(())
     }
 
@@ -614,7 +615,7 @@ mod tests {
     fn test_string_double() -> Result<(), String> {
         let input = "\"abcde\\\"fjie\"";
         let mut lex = Lex::new(input.to_string());
-        assert_eq!(lex.next()?.0, Token::String("abcde\"fjie".to_string()));
+        assert_eq!(lex.next()?.0, Token::String("abcde\"fjie".to_string(), true));
         Ok(())
     }
 

@@ -97,15 +97,16 @@ fn build_possible_object(parser: &mut Parser) -> Result<Box<dyn Node>, String> {
 
         match &*parser.current {
             Token::Variable(s) => {
-                key = Box::new(StringLiteral {
-                    value: s.to_string(),
+                key = Box::new(Identity {
+                    name: s.to_string(),
                     extra: None,
                 });
             }
-            Token::String(s) => {
+            Token::String(s, is_single_quoted) => {
                 parser.is_arrow_function = IsArrowFunction::Impossible;
                 key = Box::new(StringLiteral {
                     value: s.to_string(),
+                    is_single_quoted: *is_single_quoted,
                     extra: None,
                 });
             }

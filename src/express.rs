@@ -148,9 +148,10 @@ pub fn parse_expression(parser: &mut Parser, min_level: u8) -> Result<Box<dyn No
             extra: None,
         });
         parser.next()?;
-    } else if let Token::String(d) = &*parser.current {
+    } else if let Token::String(d, is_single_quoted) = &*parser.current {
         left = Box::new(StringLiteral {
             value: d.to_string(),
+            is_single_quoted: *is_single_quoted,
             extra: None,
         });
         parser.next()?;
@@ -224,6 +225,7 @@ pub fn parse_expression(parser: &mut Parser, min_level: u8) -> Result<Box<dyn No
                         operator: s.to_string(),
                         left,
                         right,
+                        loc: parser.loc.clone(),
                     })
                 }
                 "=>" => {
