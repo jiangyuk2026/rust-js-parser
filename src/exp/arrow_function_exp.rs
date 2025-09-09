@@ -77,7 +77,7 @@ pub fn build_possible_arrow_function(parser: &mut Parser) -> Result<Box<dyn Node
         body = parse_expression(parser, 2)?
     }
 
-    Ok(Box::new(ArrowFunctionExpression { params, body }))
+    Ok(Box::new(ArrowFunctionExpression { params, body, extra: None }))
 }
 
 fn build_possible_object(parser: &mut Parser) -> Result<Box<dyn Node>, String> {

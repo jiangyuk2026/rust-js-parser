@@ -15,7 +15,12 @@ mod parser;
 mod token;
 
 fn main() -> Result<(), String> {
-    for path in vec!["b.js", "jquery.js", "react.development.js", "cloudflare.js"] {
+    for path in vec![
+        "b.js",
+        "jquery.js",
+        "react.development.js",
+        "cloudflare.js"
+    ] {
         let start = Instant::now();
         let mut str = String::new();
         let file_path = format!("{}/{}/{}", env!("CARGO_MANIFEST_DIR"), "src", path);
@@ -42,7 +47,7 @@ fn main() -> Result<(), String> {
             for node in ast?.iter() {
                 result_txt += &node.print_node();
             }
-            println!("{:?}", result_txt);
+            // println!("{:?}", result_txt);
             fs::write(out_path, result_txt).expect("Failed to write to file");
             println!();
         }

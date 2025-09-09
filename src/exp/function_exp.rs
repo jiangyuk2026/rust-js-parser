@@ -35,7 +35,7 @@ pub fn build_function(parser: &mut Parser, is_declaration: bool) -> Result<Box<d
             body,
         }));
     }
-    Ok(Box::new(FunctionExpression { id, params, body, loc: parser.loc.clone() }))
+    Ok(Box::new(FunctionExpression { id, params, body, extra:None, loc: parser.loc.clone() }))
 }
 
 pub fn handle_function_params(parser: &mut Parser) -> Result<Vec<Box<dyn Node>>, String> {

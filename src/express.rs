@@ -33,6 +33,7 @@ pub fn parse_expression(parser: &mut Parser, min_level: u8) -> Result<Box<dyn No
                     operator,
                     prefix: true,
                     argument: parse_expression(parser, l + 1)?,
+                    extra: None,
                 });
             }
             "+" | "-" | "!" | "typeof" | "~" => {
@@ -42,6 +43,7 @@ pub fn parse_expression(parser: &mut Parser, min_level: u8) -> Result<Box<dyn No
                     operator,
                     prefix: true,
                     argument: parse_expression(parser, l + 1)?,
+                    extra: None,
                 });
             }
             "(" => {
@@ -60,6 +62,7 @@ pub fn parse_expression(parser: &mut Parser, min_level: u8) -> Result<Box<dyn No
             argument: parse_expression(parser, 14)?,
             operator: "typeof".to_string(),
             prefix: true,
+            extra: None,
         })
     } else if *parser.current == Token::Delete {
         parser.regex_allowed = true;
@@ -68,6 +71,7 @@ pub fn parse_expression(parser: &mut Parser, min_level: u8) -> Result<Box<dyn No
             argument: parse_expression(parser, 14)?,
             operator: "delete".to_string(),
             prefix: true,
+            extra: None,
         })
     } else if *parser.current == Token::True {
         parser.next()?;
@@ -83,7 +87,7 @@ pub fn parse_expression(parser: &mut Parser, min_level: u8) -> Result<Box<dyn No
         });
     } else if *parser.current == Token::This {
         parser.next()?;
-        left = Box::new(ThisExpression {});
+        left = Box::new(ThisExpression { extra: None });
     } else if *parser.current == Token::Null {
         parser.next()?;
         left = Box::new(NullLiteral { extra: None });
@@ -127,7 +131,11 @@ pub fn parse_expression(parser: &mut Parser, min_level: u8) -> Result<Box<dyn No
             }
             expect(parser, ")")?;
         }
-        left = Box::new(NewExpression { callee, arguments });
+        left = Box::new(NewExpression {
+            callee,
+            arguments,
+            extra: None,
+        });
     } else if *parser.current == Token::Void {
         parser.regex_allowed = true;
         parser.next()?;
@@ -135,6 +143,7 @@ pub fn parse_expression(parser: &mut Parser, min_level: u8) -> Result<Box<dyn No
             operator: "void".to_string(),
             argument: parse_expression(parser, 17)?,
             prefix: true,
+            extra: None,
         })
     } else if let Token::Variable(s) = &*parser.current {
         left = Box::new(Identity {
@@ -225,6 +234,7 @@ pub fn parse_expression(parser: &mut Parser, min_level: u8) -> Result<Box<dyn No
                         operator: s.to_string(),
                         left,
                         right,
+                        extra: None,
                         loc: parser.loc.clone(),
                     })
                 }
@@ -240,6 +250,7 @@ pub fn parse_expression(parser: &mut Parser, min_level: u8) -> Result<Box<dyn No
                     left = Box::new(ArrowFunctionExpression {
                         params: vec![left],
                         body: right,
+                        extra: None,
                     })
                 }
                 "." => {
@@ -250,6 +261,7 @@ pub fn parse_expression(parser: &mut Parser, min_level: u8) -> Result<Box<dyn No
                         computed: false,
                         object: left,
                         property: right,
+                        extra: None,
                     })
                 }
                 "+" | "-" | "*" | "/" | "%" | ">" | "<" | ">=" | "<=" | "==" | "===" | "!="
@@ -261,9 +273,7 @@ pub fn parse_expression(parser: &mut Parser, min_level: u8) -> Result<Box<dyn No
                         operator: s.to_string(),
                         left,
                         right,
-                        extra: Extra {
-                            parenthesized: false,
-                        },
+                        extra: None,
                     })
                 }
                 "&&" | "||" => {
@@ -274,6 +284,7 @@ pub fn parse_expression(parser: &mut Parser, min_level: u8) -> Result<Box<dyn No
                         operator: s.to_string(),
                         left,
                         right,
+                        extra: None,
                     })
                 }
                 "++" | "--" => {
@@ -282,6 +293,7 @@ pub fn parse_expression(parser: &mut Parser, min_level: u8) -> Result<Box<dyn No
                         operator: s.to_string(),
                         prefix: false,
                         argument: left,
+                        extra: None,
                     });
                 }
                 "?" => {
@@ -294,6 +306,7 @@ pub fn parse_expression(parser: &mut Parser, min_level: u8) -> Result<Box<dyn No
                         test: left,
                         consequent,
                         alternate,
+                        extra: None,
                     });
                 }
                 "(" => {
@@ -320,6 +333,7 @@ pub fn parse_expression(parser: &mut Parser, min_level: u8) -> Result<Box<dyn No
                     left = Box::new(CallExpression {
                         callee: left,
                         arguments,
+                        extra: None,
                     });
                 }
                 "[" => {
@@ -331,6 +345,7 @@ pub fn parse_expression(parser: &mut Parser, min_level: u8) -> Result<Box<dyn No
                         computed: true,
                         object: left,
                         property: right,
+                        extra: None,
                     });
                 }
                 _ => {
@@ -350,9 +365,7 @@ pub fn parse_expression(parser: &mut Parser, min_level: u8) -> Result<Box<dyn No
                     operator: operator.to_string(),
                     left,
                     right,
-                    extra: Extra {
-                        parenthesized: false,
-                    },
+                    extra: None,
                 })
             }
             _ => {
