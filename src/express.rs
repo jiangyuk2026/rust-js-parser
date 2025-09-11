@@ -15,11 +15,14 @@ use std::rc::Rc;
 
 pub fn parse_expression(parser: &mut Parser, min_level: u8) -> Result<Box<dyn Node>, String> {
     let mut left: Box<dyn Node>;
+
+    let start_loc = parser.loc.clone();
     if parser.is_identity_keyword && is_keyword(&parser.current) {
-        left = Box::new(Identity {
-            name: parser.current.to_string(),
-            extra: None,
-        });
+        left = Box::new(Identity::new(
+            parser.current.to_string(),
+            start_loc.clone(),
+            parser.last_loc.clone(),
+        ));
         parser.next()?;
     } else if *parser.current == Token::Function {
         left = build_function(parser, false)?;
@@ -29,22 +32,24 @@ pub fn parse_expression(parser: &mut Parser, min_level: u8) -> Result<Box<dyn No
         match s.as_str() {
             "++" | "--" => {
                 parser.next()?;
-                left = Box::new(UpdateExpression {
+                left = Box::new(UpdateExpression::new(
                     operator,
-                    prefix: true,
-                    argument: parse_expression(parser, l + 1)?,
-                    extra: None,
-                });
+                    true,
+                    parse_expression(parser, l + 1)?,
+                    start_loc.clone(),
+                    parser.last_loc.clone(),
+                ));
             }
             "+" | "-" | "!" | "typeof" | "~" => {
                 parser.regex_allowed = true;
                 parser.next()?;
-                left = Box::new(UnaryExpression {
+                left = Box::new(UnaryExpression::new(
                     operator,
-                    prefix: true,
-                    argument: parse_expression(parser, l + 1)?,
-                    extra: None,
-                });
+                    true,
+                    parse_expression(parser, l + 1)?,
+                    start_loc.clone(),
+                    parser.last_loc.clone(),
+                ));
             }
             "(" => {
                 left = build_possible_arrow_function(parser)?;
@@ -58,61 +63,72 @@ pub fn parse_expression(parser: &mut Parser, min_level: u8) -> Result<Box<dyn No
     } else if *parser.current == Token::Typeof {
         parser.regex_allowed = true;
         parser.next()?;
-        left = Box::new(UnaryExpression {
-            argument: parse_expression(parser, 14)?,
-            operator: "typeof".to_string(),
-            prefix: true,
-            extra: None,
-        })
+        left = Box::new(UnaryExpression::new(
+            "typeof".to_string(),
+            true,
+            parse_expression(parser, 14)?,
+            start_loc.clone(),
+            parser.last_loc.clone(),
+        ))
     } else if *parser.current == Token::Delete {
         parser.regex_allowed = true;
         parser.next()?;
-        left = Box::new(UnaryExpression {
-            argument: parse_expression(parser, 14)?,
-            operator: "delete".to_string(),
-            prefix: true,
-            extra: None,
-        })
+        left = Box::new(UnaryExpression::new(
+            "delete".to_string(),
+            true,
+            parse_expression(parser, 14)?,
+            start_loc.clone(),
+            parser.last_loc.clone(),
+        ))
     } else if *parser.current == Token::True {
         parser.next()?;
-        left = Box::new(BooleanLiteral {
-            value: true,
-            extra: None,
-        });
+        left = Box::new(BooleanLiteral::new(
+            true,
+            start_loc.clone(),
+            parser.last_loc.clone(),
+        ));
     } else if *parser.current == Token::False {
         parser.next()?;
-        left = Box::new(BooleanLiteral {
-            value: false,
-            extra: None,
-        });
+        left = Box::new(BooleanLiteral::new(
+            false,
+            start_loc.clone(),
+            parser.last_loc.clone(),
+        ));
     } else if *parser.current == Token::This {
         parser.next()?;
-        left = Box::new(ThisExpression { extra: None });
+        left = Box::new(ThisExpression::new(
+            start_loc.clone(),
+            parser.last_loc.clone(),
+        ));
     } else if *parser.current == Token::Null {
         parser.next()?;
-        left = Box::new(NullLiteral { extra: None });
+        left = Box::new(NullLiteral::new(start_loc.clone(), parser.last_loc.clone()));
     } else if *parser.current == Token::Undefined {
         parser.next()?;
-        left = Box::new(Identity {
-            name: "undefined".to_string(),
-            extra: None,
-        });
+        left = Box::new(Identity::new(
+            "undefined".to_string(),
+            start_loc.clone(),
+            parser.last_loc.clone(),
+        ));
     } else if let Token::Regex(pattern, flags) = &*parser.current {
-        left = Box::new(RegExpLiteral {
-            pattern: pattern.to_string(),
-            flags: flags.to_string(),
-            extra: None,
-        });
+        left = Box::new(RegExpLiteral::new(
+            pattern.to_string(),
+            flags.to_string(),
+            start_loc.clone(),
+            parser.last_loc.clone(),
+        ));
         parser.next()?;
     } else if let Token::TemplateStr(s) = &*parser.current {
-        left = Box::new(TemplateLiteral {
-            expressions: vec![],
-            quasis: vec![Box::new(TemplateElement {
-                value: s.to_string(),
-                extra: None,
-            })],
-            extra: None,
-        });
+        left = Box::new(TemplateLiteral::new(
+            vec![],
+            vec![Box::new(TemplateElement::new(
+                s.to_string(),
+                start_loc.clone(),
+                parser.last_loc.clone(),
+            ))],
+            start_loc.clone(),
+            parser.last_loc.clone(),
+        ));
         parser.next()?;
     } else if *parser.current == Token::New {
         parser.next()?;
@@ -131,38 +147,43 @@ pub fn parse_expression(parser: &mut Parser, min_level: u8) -> Result<Box<dyn No
             }
             expect(parser, ")")?;
         }
-        left = Box::new(NewExpression {
+        left = Box::new(NewExpression::new(
             callee,
             arguments,
-            extra: None,
-        });
+            start_loc.clone(),
+            parser.last_loc.clone(),
+        ));
     } else if *parser.current == Token::Void {
         parser.regex_allowed = true;
         parser.next()?;
-        left = Box::new(UnaryExpression {
-            operator: "void".to_string(),
-            argument: parse_expression(parser, 17)?,
-            prefix: true,
-            extra: None,
-        })
+        left = Box::new(UnaryExpression::new(
+            "void".to_string(),
+            true,
+            parse_expression(parser, 17)?,
+            start_loc.clone(),
+            parser.last_loc.clone(),
+        ))
     } else if let Token::Variable(s) = &*parser.current {
-        left = Box::new(Identity {
-            name: s.to_string(),
-            extra: None,
-        });
+        left = Box::new(Identity::new(
+            s.to_string(),
+            start_loc.clone(),
+            parser.last_loc.clone(),
+        ));
         parser.next()?;
     } else if let Token::Digit(d) = &*parser.current {
-        left = Box::new(NumericLiteral {
-            value: d.to_string(),
-            extra: None,
-        });
+        left = Box::new(NumericLiteral::new(
+            d.to_string(),
+            start_loc.clone(),
+            parser.last_loc.clone(),
+        ));
         parser.next()?;
     } else if let Token::String(d, is_single_quoted) = &*parser.current {
-        left = Box::new(StringLiteral {
-            value: d.to_string(),
-            is_single_quoted: *is_single_quoted,
-            extra: None,
-        });
+        left = Box::new(StringLiteral::new(
+            d.to_string(),
+            *is_single_quoted,
+            start_loc.clone(),
+            parser.last_loc.clone(),
+        ));
         parser.next()?;
     } else {
         return Err(format!(
@@ -215,28 +236,30 @@ pub fn parse_expression(parser: &mut Parser, min_level: u8) -> Result<Box<dyn No
                         let mut exp: Vec<Box<dyn Node>> = vec![];
                         exp.extend(t.expressions.iter().cloned());
                         exp.push(right);
-                        left = Box::new(SequenceExpression {
-                            expressions: exp,
-                            extra: None,
-                        })
+                        left = Box::new(SequenceExpression::new(
+                            exp,
+                            start_loc.clone(),
+                            parser.last_loc.clone(),
+                        ))
                     } else {
-                        left = Box::new(SequenceExpression {
-                            expressions: vec![left, right],
-                            extra: None,
-                        })
+                        left = Box::new(SequenceExpression::new(
+                            vec![left, right],
+                            start_loc.clone(),
+                            parser.last_loc.clone(),
+                        ))
                     }
                 }
                 "=" | "+=" | "-=" | "*=" | "/=" | "%=" | ">>=" | "<<=" | "|=" | "&=" => {
                     parser.regex_allowed = true;
                     parser.next()?;
                     let right = parse_expression(parser, l)?;
-                    left = Box::new(AssignmentExpression {
-                        operator: s.to_string(),
+                    left = Box::new(AssignmentExpression::new(
                         left,
+                        s.to_string(),
                         right,
-                        extra: None,
-                        loc: parser.loc.clone(),
-                    })
+                        start_loc.clone(),
+                        parser.last_loc.clone(),
+                    ))
                 }
                 "=>" => {
                     parser.regex_allowed = true;
@@ -247,54 +270,59 @@ pub fn parse_expression(parser: &mut Parser, min_level: u8) -> Result<Box<dyn No
                     } else {
                         right = parse_expression(parser, 2)?;
                     }
-                    left = Box::new(ArrowFunctionExpression {
-                        params: vec![left],
-                        body: right,
-                        extra: None,
-                    })
+                    left = Box::new(ArrowFunctionExpression::new(
+                        vec![left],
+                        right,
+                        start_loc.clone(),
+                        parser.last_loc.clone(),
+                    ))
                 }
                 "." => {
                     parser.next()?;
                     parser.is_identity_keyword = true;
                     let right = parse_expression(parser, l + 1)?;
-                    left = Box::new(MemberExpression {
-                        computed: false,
-                        object: left,
-                        property: right,
-                        extra: None,
-                    })
+                    left = Box::new(MemberExpression::new(
+                        right,
+                        left,
+                        false,
+                        start_loc.clone(),
+                        parser.last_loc.clone(),
+                    ))
                 }
                 "+" | "-" | "*" | "/" | "%" | ">" | "<" | ">=" | "<=" | "==" | "===" | "!="
                 | "&" | "|" | "<<" | ">>" | "!==" | ">>>" => {
                     parser.regex_allowed = true;
                     parser.next()?;
                     let right = parse_expression(parser, l + 1)?;
-                    left = Box::new(BinaryExpression {
-                        operator: s.to_string(),
+                    left = Box::new(BinaryExpression::new(
                         left,
+                        s.to_string(),
                         right,
-                        extra: None,
-                    })
+                        start_loc.clone(),
+                        parser.last_loc.clone(),
+                    ))
                 }
                 "&&" | "||" => {
                     parser.regex_allowed = true;
                     parser.next()?;
                     let right = parse_expression(parser, l + 1)?;
-                    left = Box::new(LogicalExpression {
-                        operator: s.to_string(),
+                    left = Box::new(LogicalExpression::new(
                         left,
+                        s.to_string(),
                         right,
-                        extra: None,
-                    })
+                        start_loc.clone(),
+                        parser.last_loc.clone(),
+                    ))
                 }
                 "++" | "--" => {
                     parser.next()?;
-                    left = Box::new(UpdateExpression {
-                        operator: s.to_string(),
-                        prefix: false,
-                        argument: left,
-                        extra: None,
-                    });
+                    left = Box::new(UpdateExpression::new(
+                        s.to_string(),
+                        false,
+                        left,
+                        start_loc.clone(),
+                        parser.last_loc.clone(),
+                    ));
                 }
                 "?" => {
                     parser.regex_allowed = true;
@@ -302,12 +330,13 @@ pub fn parse_expression(parser: &mut Parser, min_level: u8) -> Result<Box<dyn No
                     let consequent = parse_expression(parser, l)?;
                     expect(parser, ":")?;
                     let alternate = parse_expression(parser, l)?;
-                    left = Box::new(ConditionalExpression {
-                        test: left,
+                    left = Box::new(ConditionalExpression::new(
+                        left,
                         consequent,
                         alternate,
-                        extra: None,
-                    });
+                        start_loc.clone(),
+                        parser.last_loc.clone(),
+                    ));
                 }
                 "(" => {
                     parser.regex_allowed = true;
@@ -330,23 +359,25 @@ pub fn parse_expression(parser: &mut Parser, min_level: u8) -> Result<Box<dyn No
                             break;
                         }
                     }
-                    left = Box::new(CallExpression {
-                        callee: left,
+                    left = Box::new(CallExpression::new(
+                        left,
                         arguments,
-                        extra: None,
-                    });
+                        start_loc.clone(),
+                        parser.last_loc.clone(),
+                    ));
                 }
                 "[" => {
                     parser.regex_allowed = true;
                     parser.next()?;
                     let right = parse_expression(parser, 0)?;
                     expect(parser, "]")?;
-                    left = Box::new(MemberExpression {
-                        computed: true,
-                        object: left,
-                        property: right,
-                        extra: None,
-                    });
+                    left = Box::new(MemberExpression::new(
+                        right,
+                        left,
+                        true,
+                        start_loc.clone(),
+                        parser.last_loc.clone(),
+                    ));
                 }
                 _ => {
                     return Err(format!("unsupported operator {:?}", &operator));
@@ -361,12 +392,13 @@ pub fn parse_expression(parser: &mut Parser, min_level: u8) -> Result<Box<dyn No
                 parser.regex_allowed = true;
                 parser.next()?;
                 let right = parse_expression(parser, l + 1)?;
-                left = Box::new(BinaryExpression {
-                    operator: operator.to_string(),
+                left = Box::new(BinaryExpression::new(
                     left,
+                    operator.to_string(),
                     right,
-                    extra: None,
-                })
+                    start_loc.clone(),
+                    parser.last_loc.clone(),
+                ))
             }
             _ => {
                 break;

@@ -6,13 +6,15 @@ use crate::exp::switch_exp::build_switch;
 use crate::exp::try_exp::build_try;
 use crate::exp::while_exp::{build_do_while, build_while};
 use crate::express::{expect, is_ctrl_word, parse_expression};
-use crate::lex::{Lex, Loc};
+use crate::lex::{Lex, Loc, Position};
 use crate::node::Node;
 use crate::node::{
     BlockStatement, BreakStatement, ContinueStatement, EmptyStatement, ReturnStatement,
     ThrowStatement,
 };
 use crate::token::Token;
+use std::mem::take;
+use std::ptr::replace;
 use std::rc::Rc;
 
 #[derive(PartialEq, Debug)]
@@ -36,8 +38,9 @@ pub struct Parser {
     pub in_for_init: bool,
     pub list: Vec<Rc<Token>>,
     pub loc: Loc,
+    pub last_loc: Loc,
     pub last_loc_line: usize,
-    comment_list: Vec<Token>,
+    pub comment_list: Vec<Token>,
     pub regex_allowed: bool,
     pub is_identity_keyword: bool,
     pub is_identity_finally: bool,
@@ -75,12 +78,24 @@ impl Parser {
         let comment_list;
         let total;
         (current, loc, comment_list, total) = lex_next(&mut lex)?;
-
+        let init_loc = Loc {
+            start: Position {
+                index: 0,
+                line: 0,
+                column: 0,
+            },
+            end: Position {
+                index: 0,
+                line: 0,
+                column: 0,
+            },
+        };
         let parser = Parser {
             current: Rc::clone(&current),
             comment_list,
             list: vec![Rc::clone(&current)],
             loc: loc.clone(),
+            last_loc: init_loc,
             last_loc_line: 0,
             is_arrow_function: IsArrowFunction::Maybe,
             in_for_init: false,
@@ -99,6 +114,7 @@ impl Parser {
     pub fn next(&mut self) -> Result<(), String> {
         self.lex.regex_allowed = self.regex_allowed;
         self.last_loc_line = self.loc.end.line;
+        self.last_loc = self.loc.clone();
         let (current, loc, comment_list, total) = lex_next(&mut self.lex)?;
         self.total_word_count += total;
         self.current = Rc::clone(&current);
@@ -114,7 +130,8 @@ impl Parser {
     }
 
     pub fn parse_statement(&mut self) -> Result<Box<dyn Node>, String> {
-        let node:Box<dyn Node>;
+        let node: Box<dyn Node>;
+        let start_loc = self.loc.clone();
         match *self.current {
             Token::EOF => return Err("expect statement".to_string()),
             Token::Var | Token::Let | Token::Const => node = build_let(self)?,
@@ -129,13 +146,23 @@ impl Parser {
                 self.regex_allowed = true;
                 self.next()?;
                 if !self.is_same_line() || *self.current == Token::EOF {
-                    node = Box::new(ReturnStatement { argument: None })
+                    node = Box::new(ReturnStatement::new(
+                        None,
+                        start_loc.clone(),
+                        self.last_loc.clone(),
+                    ))
                 } else if is_ctrl_word(&self.current, "}") || is_ctrl_word(&self.current, ";") {
-                    node = Box::new(ReturnStatement { argument: None })
+                    node = Box::new(ReturnStatement::new(
+                        None,
+                        start_loc.clone(),
+                        self.last_loc.clone(),
+                    ))
                 } else {
-                    node = Box::new(ReturnStatement {
-                        argument: Some(parse_expression(self, 0)?),
-                    });
+                    node = Box::new(ReturnStatement::new(
+                        Some(parse_expression(self, 0)?),
+                        start_loc.clone(),
+                        self.last_loc.clone(),
+                    ));
                     if is_ctrl_word(&self.current, ";") {
                         self.next()?;
                     }
@@ -143,14 +170,22 @@ impl Parser {
             }
             Token::Break => {
                 self.next()?;
-                node = Box::new(BreakStatement { label: None });
+                node = Box::new(BreakStatement::new(
+                    None,
+                    start_loc.clone(),
+                    self.last_loc.clone(),
+                ));
                 if is_ctrl_word(&self.current, ";") {
                     self.next()?;
                 }
             }
             Token::Continue => {
                 self.next()?;
-                node = Box::new(ContinueStatement { label: None });
+                node = Box::new(ContinueStatement::new(
+                    None,
+                    start_loc.clone(),
+                    self.last_loc.clone(),
+                ));
                 if is_ctrl_word(&self.current, ";") {
                     self.next()?;
                 }
@@ -164,9 +199,11 @@ impl Parser {
                 if is_ctrl_word(&self.current, "}") || is_ctrl_word(&self.current, ";") {
                     return Err("Unexpected token".to_string());
                 }
-                node = Box::new(ThrowStatement {
-                    argument: parse_expression(self, 0)?,
-                });
+                node = Box::new(ThrowStatement::new(
+                    parse_expression(self, 0)?,
+                    start_loc.clone(),
+                    self.last_loc.clone(),
+                ));
                 if is_ctrl_word(&self.current, ";") {
                     self.next()?;
                 }
@@ -182,19 +219,19 @@ impl Parser {
     }
 
     pub fn parse_statement_list(&mut self) -> Result<Vec<Box<dyn Node>>, String> {
-        let mut ast:Vec<Box<dyn Node>> = vec![];
+        let mut ast: Vec<Box<dyn Node>> = vec![];
         loop {
             match &*self.current {
                 Token::EOF => break,
                 Token::Case | Token::Default => break,
                 Token::Control(s) => match s.as_str() {
-                    "{"=> {
+                    "{" => {
                         ast.push(self.parse_block()?);
                         continue;
                     }
                     "}" => break,
                     ";" => {
-                        ast.push(Box::new(EmptyStatement {}));
+                        ast.push(Box::new(EmptyStatement::new()));
                         self.regex_allowed = true;
                         self.next()?;
                         continue;
@@ -211,14 +248,17 @@ impl Parser {
 
     pub fn parse_block(&mut self) -> Result<Box<dyn Node>, String> {
         let consequent: Box<dyn Node>;
+        let start_loc = self.loc.clone();
         if !is_ctrl_word(&self.current, "{") {
             return Err("handle_block expect {".to_string());
         }
         self.regex_allowed = true;
         self.next()?;
-        consequent = Box::new(BlockStatement {
-            body: Parser::parse_statement_list(self)?,
-        });
+        consequent = Box::new(BlockStatement::new(
+            Parser::parse_statement_list(self)?,
+            start_loc.clone(),
+            self.last_loc.clone(),
+        ));
         expect(self, "}")?;
         Ok(consequent)
     }
@@ -228,7 +268,7 @@ impl Parser {
         if is_ctrl_word(&self.current, "{") {
             body = Parser::parse_block(self)?;
         } else if is_ctrl_word(&self.current, ";") {
-            body = Box::new(EmptyStatement {});
+            body = Box::new(EmptyStatement::new());
             self.regex_allowed = true;
             self.next()?;
         } else {

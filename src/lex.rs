@@ -6,12 +6,30 @@ use std::fmt::Display;
 pub struct Position {
     pub line: usize,
     pub column: usize,
+    pub index: usize,
 }
 
 #[derive(Debug, Clone)]
 pub struct Loc {
     pub start: Position,
     pub end: Position,
+}
+
+impl Loc {
+    pub fn default() -> Self {
+        Loc {
+            start: Position {
+                line: 0,
+                column: 0,
+                index: 0,
+            },
+            end: Position {
+                line: 0,
+                column: 0,
+                index: 0,
+            },
+        }
+    }
 }
 
 pub struct Lex {
@@ -64,6 +82,7 @@ impl Lex {
         let start = Position {
             line: self.line,
             column: self.column,
+            index: self.pos,
         };
         let mut result;
         loop {
@@ -110,6 +129,7 @@ impl Lex {
         let end = Position {
             line: self.line,
             column: self.column,
+            index: self.pos,
         };
         Ok((result, Loc { start, end }))
     }
@@ -607,7 +627,10 @@ mod tests {
     fn test_string_single_newline() -> Result<(), String> {
         let input = "'abcdefjie\\nxx'";
         let mut lex = Lex::new(input.to_string());
-        assert_eq!(lex.next()?.0, Token::String("abcdefjie\nxx".to_string(), true));
+        assert_eq!(
+            lex.next()?.0,
+            Token::String("abcdefjie\nxx".to_string(), true)
+        );
         Ok(())
     }
 
@@ -615,7 +638,10 @@ mod tests {
     fn test_string_double() -> Result<(), String> {
         let input = "\"abcde\\\"fjie\"";
         let mut lex = Lex::new(input.to_string());
-        assert_eq!(lex.next()?.0, Token::String("abcde\"fjie".to_string(), true));
+        assert_eq!(
+            lex.next()?.0,
+            Token::String("abcde\"fjie".to_string(), true)
+        );
         Ok(())
     }
 

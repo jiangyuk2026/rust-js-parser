@@ -5,6 +5,7 @@ use crate::parser::Parser;
 use crate::token::Token;
 
 pub fn build_let(parser: &mut Parser) -> Result<Box<dyn Node>, String> {
+    let start_loc = parser.loc.clone();
     let kind = expect_keys(&parser.current, &vec![Token::Var, Token::Let, Token::Const])?;
     parser.next()?;
     let mut declarations = vec![];
@@ -26,27 +27,37 @@ pub fn build_let(parser: &mut Parser) -> Result<Box<dyn Node>, String> {
     if !parser.in_for_init && is_ctrl_word(&parser.current, ";") {
         parser.next()?;
     }
-    Ok(Box::new(VariableDeclaration { kind, declarations }))
+    Ok(Box::new(VariableDeclaration::new(
+        kind,
+        declarations,
+        start_loc,
+        parser.loc.clone(),
+    )))
 }
 
 fn build_declarator(parser: &mut Parser) -> Result<Box<dyn Node>, String> {
+    let start_loc = parser.loc.clone();
     let id = &*parser.current;
     if let Token::Variable(s) = id {
-        let id = Box::new(Identity {
-            name: s.to_string(),
-            extra: None
-        });
+        let id = Box::new(Identity::new(s.to_string(), start_loc.clone(), parser.loc.clone()));
         parser.next()?;
         let equal = &parser.current;
         if !is_ctrl_word(equal, "=") {
-            return Ok(Box::new(VariableDeclarator { id, init: None }));
+            return Ok(Box::new(VariableDeclarator::new(
+                id,
+                None,
+                start_loc,
+                parser.last_loc.clone(),
+            )));
         }
         parser.regex_allowed = true;
         parser.next()?;
-        return Ok(Box::new(VariableDeclarator {
+        return Ok(Box::new(VariableDeclarator::new(
             id,
-            init: Some(parse_expression(parser, 1)?),
-        }));
+            Some(parse_expression(parser, 1)?),
+            start_loc,
+            parser.last_loc.clone(),
+        )));
     }
     Err(format!("expect Variable, find {id}"))
 }

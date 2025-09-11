@@ -10,6 +10,7 @@ use crate::token::{Token, is_keyword};
 pub fn build_object(parser: &mut Parser) -> Result<Box<dyn Node>, String> {
     let mut properties: Vec<Box<dyn Node>> = vec![];
 
+    let start_loc = parser.loc.clone();
     expect(parser, "{")?;
 
     loop {
@@ -23,30 +24,34 @@ pub fn build_object(parser: &mut Parser) -> Result<Box<dyn Node>, String> {
         let key: Box<dyn Node>;
 
         if is_keyword(&parser.current) {
-            key = Box::new(Identity {
-                name: parser.current.to_string(),
-                extra: None
-            })
+            key = Box::new(Identity::new(
+                parser.current.to_string(),
+                start_loc.clone(),
+                parser.last_loc.clone(),
+            ))
         } else {
             match &*parser.current {
                 Token::Variable(s) => {
-                    key = Box::new(Identity {
-                        name: s.to_string(),
-                        extra: None
-                    });
+                    key = Box::new(Identity::new(
+                        s.to_string(),
+                        start_loc.clone(),
+                        parser.last_loc.clone(),
+                    ));
                 }
                 Token::String(s, is_single_quoted) => {
-                    key = Box::new(StringLiteral {
-                        value: s.to_string(),
-                        is_single_quoted: *is_single_quoted,
-                        extra: None
-                    });
+                    key = Box::new(StringLiteral::new(
+                        s.to_string(),
+                        *is_single_quoted,
+                        start_loc.clone(),
+                        parser.last_loc.clone(),
+                    ));
                 }
                 Token::Digit(s) => {
-                    key = Box::new(NumericLiteral {
-                        value: s.to_string(),
-                        extra: None
-                    });
+                    key = Box::new(NumericLiteral::new(
+                        s.to_string(),
+                        start_loc.clone(),
+                        parser.last_loc.clone(),
+                    ));
                 }
                 _ => {
                     return Err("object property type error".to_string());
@@ -55,30 +60,40 @@ pub fn build_object(parser: &mut Parser) -> Result<Box<dyn Node>, String> {
         }
         parser.next()?;
         if is_ctrl_word(&parser.current, ",") {
-            properties.push(Box::new(ObjectProperty {
-                key: key.clone(),
-                value: key,
-            }));
+            properties.push(Box::new(ObjectProperty::new(
+                key.clone(),
+                key,
+                start_loc.clone(),
+                parser.last_loc.clone(),
+            )));
         } else if is_ctrl_word(&parser.current, "(") {
             let params = handle_function_params(parser)?;
             let body = Parser::parse_block(parser)?;
-            properties.push(Box::new(ObjectMethod {
+            properties.push(Box::new(ObjectMethod::new(
                 key,
                 params,
                 body,
-            }))
+                start_loc.clone(),
+                parser.last_loc.clone(),
+            )))
         } else if is_ctrl_word(&parser.current, ":") {
             parser.regex_allowed = true;
             parser.next()?;
-            properties.push(Box::new(ObjectProperty {
+            properties.push(Box::new(ObjectProperty::new(
                 key,
-                value: parse_expression(parser, 2)?,
-            }));
+                parse_expression(parser, 2)?,
+                start_loc.clone(),
+                parser.last_loc.clone(),
+            )));
         }
     }
 
     expect(parser, "}")?;
-    Ok(Box::new(ObjectExpression { properties, extra: None }))
+    Ok(Box::new(ObjectExpression::new(
+        properties,
+        start_loc.clone(),
+        parser.last_loc.clone(),
+    )))
 }
 
 #[cfg(test)]

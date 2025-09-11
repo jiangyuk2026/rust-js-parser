@@ -1,6 +1,6 @@
 use crate::express::{expect, expect_keyword, parse_expression};
-use crate::node::Node;
 use crate::node::IfStatement;
+use crate::node::Node;
 use crate::parser::Parser;
 use crate::token::Token;
 
@@ -9,6 +9,7 @@ pub fn build_if(parser: &mut Parser) -> Result<Box<dyn Node>, String> {
     let consequent: Box<dyn Node>;
     let alternate: Option<Box<dyn Node>>;
 
+    let start_loc = parser.loc.clone();
     expect_keyword(&parser.current, Token::If)?;
     parser.next()?;
     parser.regex_allowed = true;
@@ -29,11 +30,13 @@ pub fn build_if(parser: &mut Parser) -> Result<Box<dyn Node>, String> {
     } else {
         alternate = None;
     }
-    Ok(Box::new(IfStatement {
+    Ok(Box::new(IfStatement::new(
         test,
         consequent,
         alternate,
-    }))
+        start_loc.clone(),
+        parser.last_loc.clone(),
+    )))
 }
 
 #[cfg(test)]

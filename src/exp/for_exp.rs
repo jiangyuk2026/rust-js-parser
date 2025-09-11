@@ -11,6 +11,7 @@ pub fn build_for(parser: &mut Parser) -> Result<Box<dyn Node>, String> {
     let init: Box<dyn Node>;
     let test: Box<dyn Node>;
     let update: Box<dyn Node>;
+    let start_loc = parser.loc.clone();
     expect_keyword(&parser.current, Token::For)?;
     parser.next()?;
     expect(parser, "(")?;
@@ -57,11 +58,13 @@ pub fn build_for(parser: &mut Parser) -> Result<Box<dyn Node>, String> {
         parser.regex_allowed = true;
         expect(parser, ")")?;
         let body = parser.build_maybe_empty_body()?;
-        return Ok(Box::new(ForInStatement {
-            left: init,
+        return Ok(Box::new(ForInStatement::new(
+            init,
             right,
             body,
-        }));
+            start_loc,
+            parser.last_loc.clone(),
+        )));
     }
     parser.regex_allowed = true;
     expect(parser, ";")?;
@@ -79,12 +82,14 @@ pub fn build_for(parser: &mut Parser) -> Result<Box<dyn Node>, String> {
     }
     parser.regex_allowed = true;
     expect(parser, ")")?;
-    Ok(Box::new(ForStatement {
+    Ok(Box::new(ForStatement::new(
         init,
         test,
         update,
-        body: parser.build_maybe_empty_body()?,
-    }))
+        parser.build_maybe_empty_body()?,
+        start_loc,
+        parser.last_loc.clone(),
+    )))
 }
 
 fn is_single_variable_without_value(node: &dyn Node) -> Result<bool, String> {

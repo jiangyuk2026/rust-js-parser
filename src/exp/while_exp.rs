@@ -8,6 +8,7 @@ pub fn build_while(parser: &mut Parser) -> Result<Box<dyn Node>, String> {
     let test: Box<dyn Node>;
     let body: Box<dyn Node>;
 
+    let start_loc = parser.loc.clone();
     expect_keyword(&parser.current, Token::While)?;
     parser.next()?;
     parser.regex_allowed = true;
@@ -15,12 +16,19 @@ pub fn build_while(parser: &mut Parser) -> Result<Box<dyn Node>, String> {
     test = parse_expression(parser, 0)?;
     expect(parser, ")")?;
     body = parser.build_maybe_empty_body()?;
-    Ok(Box::new(WhileStatement { test, body }))
+    Ok(Box::new(WhileStatement::new(
+        test,
+        body,
+        start_loc.clone(),
+        parser.last_loc.clone(),
+    )))
 }
 
 pub fn build_do_while(parser: &mut Parser) -> Result<Box<dyn Node>, String> {
     let body: Box<dyn Node>;
     let test: Box<dyn Node>;
+
+    let start_loc = parser.loc.clone();
     expect_keyword(&parser.current, Token::Do)?;
     parser.next()?;
     body = Parser::parse_block(parser)?;
@@ -30,7 +38,12 @@ pub fn build_do_while(parser: &mut Parser) -> Result<Box<dyn Node>, String> {
     expect(parser, "(")?;
     test = parse_expression(parser, 0)?;
     expect(parser, ")")?;
-    Ok(Box::new(DoWhileStatement { body, test }))
+    Ok(Box::new(DoWhileStatement::new(
+        body,
+        test,
+        start_loc.clone(),
+        parser.last_loc.clone(),
+    )))
 }
 
 #[cfg(test)]

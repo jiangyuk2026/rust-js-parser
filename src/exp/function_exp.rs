@@ -12,14 +12,16 @@ pub fn build_function(parser: &mut Parser, is_declaration: bool) -> Result<Box<d
     let mut params;
     let body: Box<dyn Node>;
 
+    let start_loc = parser.loc.clone();
     expect_keyword(&parser.current, Token::Function)?;
     parser.next()?;
 
     if let Token::Variable(s) = &*parser.current {
-        id = Some(Box::new(Identity {
-            name: s.to_string(),
-            extra: None
-        }));
+        id = Some(Box::new(Identity::new(
+            s.to_string(),
+            start_loc.clone(),
+            parser.last_loc.clone(),
+        )));
         parser.next()?;
     } else if is_declaration {
         return Err("Expected function name".to_string());
@@ -29,18 +31,27 @@ pub fn build_function(parser: &mut Parser, is_declaration: bool) -> Result<Box<d
     params = handle_function_params(parser)?;
     body = Parser::parse_block(parser)?;
     if is_declaration {
-        return Ok(Box::new(FunctionDeclaration {
-            id: id.unwrap(),
+        return Ok(Box::new(FunctionDeclaration::new(
+            id.unwrap(),
             params,
             body,
-        }));
+            start_loc,
+            parser.last_loc.clone(),
+        )));
     }
-    Ok(Box::new(FunctionExpression { id, params, body, extra:None, loc: parser.loc.clone() }))
+    Ok(Box::new(FunctionExpression::new(
+        id,
+        params,
+        body,
+        start_loc,
+        parser.last_loc.clone(),
+    )))
 }
 
 pub fn handle_function_params(parser: &mut Parser) -> Result<Vec<Box<dyn Node>>, String> {
     let mut params: Vec<Box<dyn Node>> = vec![];
 
+    let start_loc = parser.loc.clone();
     expect(parser, "(")?;
     loop {
         if is_ctrl_word(&parser.current, ")") {
@@ -50,19 +61,22 @@ pub fn handle_function_params(parser: &mut Parser) -> Result<Vec<Box<dyn Node>>,
             parser.next()?;
             continue;
         } else if let Token::Variable(s) = &*parser.current {
-            let param = Box::new(Identity {
-                name: s.to_string(),
-                extra: None
-            });
+            let param = Box::new(Identity::new(
+                s.to_string(),
+                start_loc.clone(),
+                parser.last_loc.clone(),
+            ));
             parser.next()?;
             if is_ctrl_word(&parser.current, "=") {
                 parser.regex_allowed = true;
                 parser.next()?;
                 let default_value = parse_expression(parser, 2)?;
-                params.push(Box::new(AssignmentPattern {
-                    left: param,
-                    right: default_value,
-                }));
+                params.push(Box::new(AssignmentPattern::new(
+                    param,
+                    default_value,
+                    start_loc.clone(),
+                    parser.last_loc.clone(),
+                )));
             } else {
                 params.push(param);
             }
@@ -81,6 +95,7 @@ fn handle_object(parser: &mut Parser) -> Result<Box<dyn Node>, String> {
     if !is_ctrl_word(&parser.current, "{") {
         return Err("function handle_object expect {".to_string());
     }
+    let start_loc = parser.loc.clone();
     parser.next()?;
     let mut properties: Vec<Box<dyn Node>> = vec![];
     loop {
@@ -94,21 +109,27 @@ fn handle_object(parser: &mut Parser) -> Result<Box<dyn Node>, String> {
                 parser.next()?;
                 if is_ctrl_word(&parser.current, "{") {
                     let right = handle_object(parser)?;
-                    properties.push(Box::new(ObjectProperty {
-                        key: Box::new(Identity {
-                            name: name.to_string(),
-                            extra: None
-                        }),
-                        value: right,
-                    }))
+                    properties.push(Box::new(ObjectProperty::new(
+                        Box::new(Identity::new(
+                            name.to_string(),
+                            start_loc.clone(),
+                            parser.last_loc.clone(),
+                        )),
+                        right,
+                        start_loc.clone(),
+                        parser.last_loc.clone(),
+                    )))
                 } else if is_ctrl_word(&parser.current, "[") {
-                    properties.push(Box::new(ObjectProperty {
-                        key: Box::new(Identity {
-                            name: name.to_string(),
-                            extra: None
-                        }),
-                        value: handle_array(parser)?,
-                    }))
+                    properties.push(Box::new(ObjectProperty::new(
+                        Box::new(Identity::new(
+                            name.to_string(),
+                            start_loc.clone(),
+                            parser.last_loc.clone(),
+                        )),
+                        handle_array(parser)?,
+                        start_loc.clone(),
+                        parser.last_loc.clone(),
+                    )))
                 } else {
                     return Err("handle_object expect { or [ after :".to_string());
                 }
@@ -116,32 +137,42 @@ fn handle_object(parser: &mut Parser) -> Result<Box<dyn Node>, String> {
                 parser.regex_allowed = true;
                 parser.next()?;
                 let right = parse_expression(parser, 2)?;
-                properties.push(Box::new(ObjectProperty {
-                    key: Box::new(Identity {
-                        name: name.to_string(),
-                        extra: None
-                    }),
-                    value: Box::new(AssignmentPattern {
-                        left: Box::new(Identity {
-                            name: name.to_string(),
-                            extra: None
-                        }),
+                properties.push(Box::new(ObjectProperty::new(
+                    Box::new(Identity::new(
+                        name.to_string(),
+                        start_loc.clone(),
+                        parser.last_loc.clone(),
+                    )),
+                    Box::new(AssignmentPattern::new(
+                        Box::new(Identity::new(
+                            name.to_string(),
+                            start_loc.clone(),
+                            parser.last_loc.clone(),
+                        )),
                         right,
-                    }),
-                }))
+                        start_loc.clone(),
+                        parser.last_loc.clone(),
+                    )),
+                    start_loc.clone(),
+                    parser.last_loc.clone(),
+                )))
             } else if is_ctrl_word(&parser.current, ",") {
                 parser.regex_allowed = true;
                 parser.next()?;
-                properties.push(Box::new(ObjectProperty {
-                    key: Box::new(Identity {
-                        name: name.to_string(),
-                        extra: None
-                    }),
-                    value: Box::new(Identity {
-                        name: name.to_string(),
-                        extra: None
-                    }),
-                }))
+                properties.push(Box::new(ObjectProperty::new(
+                    Box::new(Identity::new(
+                        name.to_string(),
+                        start_loc.clone(),
+                        parser.last_loc.clone(),
+                    )),
+                    Box::new(Identity::new(
+                        name.to_string(),
+                        start_loc.clone(),
+                        parser.last_loc.clone(),
+                    )),
+                    start_loc.clone(),
+                    parser.last_loc.clone(),
+                )))
             } else {
                 return Err("handle_object syntax error".to_string());
             }
@@ -153,7 +184,11 @@ fn handle_object(parser: &mut Parser) -> Result<Box<dyn Node>, String> {
         return Err("function param expect }".to_string());
     }
     parser.next()?;
-    Ok(Box::new(ObjectPattern { properties }))
+    Ok(Box::new(ObjectPattern::new(
+        properties,
+        start_loc.clone(),
+        parser.last_loc.clone(),
+    )))
 }
 
 fn handle_array(parser: &mut Parser) -> Result<Box<dyn Node>, String> {
@@ -161,6 +196,7 @@ fn handle_array(parser: &mut Parser) -> Result<Box<dyn Node>, String> {
     if !is_ctrl_word(&parser.current, "[") {
         return Err("function handle_array expect [".to_string());
     }
+    let start_loc = parser.loc.clone();
     parser.next()?;
     loop {
         if is_ctrl_word(&parser.current, "]") {
@@ -168,17 +204,20 @@ fn handle_array(parser: &mut Parser) -> Result<Box<dyn Node>, String> {
         } else if is_ctrl_word(&parser.current, ",") {
             parser.next()?;
         } else if let Token::Variable(s) = &*parser.current {
-            let name = Box::new(Identity {
-                name: s.to_string(),
-                extra: None
-            });
+            let name = Box::new(Identity::new(
+                s.to_string(),
+                start_loc.clone(),
+                parser.last_loc.clone(),
+            ));
             parser.next()?;
             if is_ctrl_word(&parser.current, "=") {
                 parser.next()?;
-                elements.push(Box::new(AssignmentPattern {
-                    left: name,
-                    right: parse_expression(parser, 2)?,
-                }));
+                elements.push(Box::new(AssignmentPattern::new(
+                    name,
+                    parse_expression(parser, 2)?,
+                    start_loc.clone(),
+                    parser.last_loc.clone(),
+                )));
             } else {
                 elements.push(name);
             }
@@ -194,7 +233,11 @@ fn handle_array(parser: &mut Parser) -> Result<Box<dyn Node>, String> {
         return Err("function handle_array expect ]".to_string());
     }
     parser.next()?;
-    Ok(Box::new(ArrayPattern { elements }))
+    Ok(Box::new(ArrayPattern::new(
+        elements,
+        start_loc.clone(),
+        parser.last_loc.clone(),
+    )))
 }
 
 #[cfg(test)]

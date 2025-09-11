@@ -1,10 +1,12 @@
 use crate::express::{expect, is_ctrl_word, parse_expression};
+use crate::lex::Loc;
 use crate::node::{ArrayExpression, Node};
 use crate::parser::Parser;
 
 pub fn build_array(parser: &mut Parser) -> Result<Box<dyn Node>, String> {
     let mut elements = vec![];
 
+    let start_loc = parser.loc.clone();
     expect(parser, "[")?;
     loop {
         if is_ctrl_word(&parser.current, "]") {
@@ -18,7 +20,7 @@ pub fn build_array(parser: &mut Parser) -> Result<Box<dyn Node>, String> {
         elements.push(item);
     }
     expect(parser, "]")?;
-    Ok(Box::new(ArrayExpression { elements, extra: None }))
+    Ok(Box::new(ArrayExpression::new(elements, start_loc, parser.last_loc.clone()) ))
 }
 
 #[cfg(test)]

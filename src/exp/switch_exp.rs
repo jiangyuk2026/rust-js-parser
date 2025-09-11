@@ -8,6 +8,7 @@ pub fn build_switch(parser: &mut Parser) -> Result<Box<dyn Node>, String> {
     let discriminant: Box<dyn Node>;
     let mut cases: Vec<Box<dyn Node>> = vec![];
 
+    let start_loc = parser.loc.clone();
     expect_keyword(&parser.current, Token::Switch)?;
     parser.next()?;
     parser.regex_allowed = true;
@@ -35,16 +36,23 @@ pub fn build_switch(parser: &mut Parser) -> Result<Box<dyn Node>, String> {
             } else {
                 consequent = Parser::parse_statement_list(parser)?;
             }
-            cases.push(Box::new(SwitchCase { test, consequent }));
+            cases.push(Box::new(SwitchCase::new(
+                test,
+                consequent,
+                start_loc.clone(),
+                parser.last_loc.clone(),
+            )));
         } else {
             break;
         }
     }
     expect(parser, "}")?;
-    Ok(Box::new(SwitchStatement {
+    Ok(Box::new(SwitchStatement::new(
         discriminant,
         cases,
-    }))
+        start_loc.clone(),
+        parser.last_loc.clone(),
+    )))
 }
 
 #[cfg(test)]

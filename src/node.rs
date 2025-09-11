@@ -6,7 +6,9 @@ use std::fmt::{Debug, Formatter, Pointer};
 #[derive(Debug, PartialEq, Clone)]
 pub struct Extra {
     pub parenthesized: bool,
+    pub paren_start: usize,
 }
+
 pub trait NodeClone {
     fn clone_box(&self) -> Box<dyn Node>;
     fn fmt_node(&self, f: &mut Formatter<'_>) -> std::fmt::Result;
@@ -27,7 +29,7 @@ where
 
 pub trait Node: NodeClone + Debug {
     fn as_any(&self) -> &dyn Any;
-    fn set_parenthesized(&mut self, _value: bool) {}
+    fn set_parenthesized(&mut self, _extra: Option<Extra>) {}
     fn is_parenthesized(&self) -> bool;
     fn check_parenthesized(&self, extra: &Option<Extra>) -> bool {
         if let Some(extra) = &extra {
@@ -60,6 +62,11 @@ impl Clone for Box<dyn Node> {
 
 #[derive(Clone, Debug)]
 pub struct EmptyStatement {}
+impl EmptyStatement {
+    pub fn new() -> EmptyStatement {
+        EmptyStatement {}
+    }
+}
 impl Node for EmptyStatement {
     fn as_any(&self) -> &dyn Any {
         self
@@ -75,17 +82,33 @@ impl Node for EmptyStatement {
 #[derive(Clone, Debug)]
 pub struct Identity {
     pub name: String,
+    pub start: usize,
+    pub end: usize,
+    pub loc: Loc,
     pub extra: Option<Extra>,
+}
+
+impl Identity {
+    pub fn new(name: String, start_loc: Loc, end_loc: Loc) -> Self {
+        Identity {
+            name,
+            start: start_loc.start.index,
+            end: end_loc.end.index,
+            loc: Loc {
+                start: start_loc.start,
+                end: end_loc.end,
+            },
+            extra: None,
+        }
+    }
 }
 
 impl Node for Identity {
     fn as_any(&self) -> &dyn Any {
         self
     }
-    fn set_parenthesized(&mut self, value: bool) {
-        self.extra = Some(Extra {
-            parenthesized: value,
-        });
+    fn set_parenthesized(&mut self, extra: Option<Extra>) {
+        self.extra = extra;
     }
     fn is_parenthesized(&self) -> bool {
         self.check_parenthesized(&self.extra)
@@ -98,17 +121,33 @@ impl Node for Identity {
 #[derive(Clone, Debug)]
 pub struct NumericLiteral {
     pub value: String,
+    pub start: usize,
+    pub end: usize,
+    pub loc: Loc,
     pub extra: Option<Extra>,
+}
+
+impl NumericLiteral {
+    pub fn new(value: String, start_loc: Loc, end_loc: Loc) -> Self {
+        NumericLiteral {
+            value,
+            start: start_loc.start.index,
+            end: end_loc.end.index,
+            loc: Loc {
+                start: start_loc.start,
+                end: end_loc.end,
+            },
+            extra: None,
+        }
+    }
 }
 
 impl Node for NumericLiteral {
     fn as_any(&self) -> &dyn Any {
         self
     }
-    fn set_parenthesized(&mut self, value: bool) {
-        self.extra = Some(Extra {
-            parenthesized: value,
-        });
+    fn set_parenthesized(&mut self, extra: Option<Extra>) {
+        self.extra = extra;
     }
     fn is_parenthesized(&self) -> bool {
         self.check_parenthesized(&self.extra)
@@ -122,17 +161,34 @@ impl Node for NumericLiteral {
 pub struct StringLiteral {
     pub value: String,
     pub is_single_quoted: bool,
+    pub start: usize,
+    pub end: usize,
+    pub loc: Loc,
     pub extra: Option<Extra>,
+}
+
+impl StringLiteral {
+    pub fn new(value: String, is_single_quoted: bool, start_loc: Loc, end_loc: Loc) -> Self {
+        StringLiteral {
+            value,
+            is_single_quoted,
+            start: start_loc.start.index,
+            end: end_loc.end.index,
+            loc: Loc {
+                start: start_loc.start,
+                end: end_loc.end,
+            },
+            extra: None,
+        }
+    }
 }
 
 impl Node for StringLiteral {
     fn as_any(&self) -> &dyn Any {
         self
     }
-    fn set_parenthesized(&mut self, value: bool) {
-        self.extra = Some(Extra {
-            parenthesized: value,
-        });
+    fn set_parenthesized(&mut self, extra: Option<Extra>) {
+        self.extra = extra;
     }
     fn is_parenthesized(&self) -> bool {
         self.check_parenthesized(&self.extra)
@@ -148,17 +204,33 @@ impl Node for StringLiteral {
 #[derive(Clone, Debug)]
 pub struct BooleanLiteral {
     pub value: bool,
+    pub start: usize,
+    pub end: usize,
+    pub loc: Loc,
     pub extra: Option<Extra>,
+}
+
+impl BooleanLiteral {
+    pub fn new(value: bool, start_loc: Loc, end_loc: Loc) -> Self {
+        BooleanLiteral {
+            value,
+            start: start_loc.start.index,
+            end: end_loc.end.index,
+            loc: Loc {
+                start: start_loc.start,
+                end: end_loc.end,
+            },
+            extra: None,
+        }
+    }
 }
 
 impl Node for BooleanLiteral {
     fn as_any(&self) -> &dyn Any {
         self
     }
-    fn set_parenthesized(&mut self, value: bool) {
-        self.extra = Some(Extra {
-            parenthesized: value,
-        });
+    fn set_parenthesized(&mut self, extra: Option<Extra>) {
+        self.extra = extra;
     }
     fn is_parenthesized(&self) -> bool {
         self.check_parenthesized(&self.extra)
@@ -174,17 +246,32 @@ impl Node for BooleanLiteral {
 
 #[derive(Clone, Debug)]
 pub struct NullLiteral {
+    pub start: usize,
+    pub end: usize,
+    pub loc: Loc,
     pub extra: Option<Extra>,
+}
+
+impl NullLiteral {
+    pub fn new(start_loc: Loc, end_loc: Loc) -> Self {
+        NullLiteral {
+            start: start_loc.start.index,
+            end: end_loc.end.index,
+            loc: Loc {
+                start: start_loc.start,
+                end: end_loc.end,
+            },
+            extra: None,
+        }
+    }
 }
 
 impl Node for NullLiteral {
     fn as_any(&self) -> &dyn Any {
         self
     }
-    fn set_parenthesized(&mut self, value: bool) {
-        self.extra = Some(Extra {
-            parenthesized: value,
-        });
+    fn set_parenthesized(&mut self, extra: Option<Extra>) {
+        self.extra = extra;
     }
     fn is_parenthesized(&self) -> bool {
         self.check_parenthesized(&self.extra)
@@ -198,17 +285,34 @@ impl Node for NullLiteral {
 pub struct RegExpLiteral {
     pub pattern: String,
     pub flags: String,
+    pub start: usize,
+    pub end: usize,
+    pub loc: Loc,
     pub extra: Option<Extra>,
+}
+
+impl RegExpLiteral {
+    pub fn new(pattern: String, flags: String, start_loc: Loc, end_loc: Loc) -> Self {
+        RegExpLiteral {
+            pattern,
+            flags,
+            start: start_loc.start.index,
+            end: end_loc.end.index,
+            loc: Loc {
+                start: start_loc.start,
+                end: end_loc.end,
+            },
+            extra: None,
+        }
+    }
 }
 
 impl Node for RegExpLiteral {
     fn as_any(&self) -> &dyn Any {
         self
     }
-    fn set_parenthesized(&mut self, value: bool) {
-        self.extra = Some(Extra {
-            parenthesized: value,
-        });
+    fn set_parenthesized(&mut self, extra: Option<Extra>) {
+        self.extra = extra;
     }
     fn is_parenthesized(&self) -> bool {
         self.check_parenthesized(&self.extra)
@@ -222,17 +326,39 @@ impl Node for RegExpLiteral {
 pub struct TemplateLiteral {
     pub expressions: Vec<Box<dyn Node>>,
     pub quasis: Vec<Box<dyn Node>>,
+    pub start: usize,
+    pub end: usize,
+    pub loc: Loc,
     pub extra: Option<Extra>,
+}
+
+impl TemplateLiteral {
+    pub fn new(
+        expressions: Vec<Box<dyn Node>>,
+        quasis: Vec<Box<dyn Node>>,
+        start_loc: Loc,
+        end_loc: Loc,
+    ) -> Self {
+        TemplateLiteral {
+            expressions,
+            quasis,
+            start: start_loc.start.index,
+            end: end_loc.end.index,
+            loc: Loc {
+                start: start_loc.start,
+                end: end_loc.end,
+            },
+            extra: None,
+        }
+    }
 }
 
 impl Node for TemplateLiteral {
     fn as_any(&self) -> &dyn Any {
         self
     }
-    fn set_parenthesized(&mut self, value: bool) {
-        self.extra = Some(Extra {
-            parenthesized: value,
-        });
+    fn set_parenthesized(&mut self, extra: Option<Extra>) {
+        self.extra = extra;
     }
     fn is_parenthesized(&self) -> bool {
         self.check_parenthesized(&self.extra)
@@ -245,17 +371,33 @@ impl Node for TemplateLiteral {
 #[derive(Clone, Debug)]
 pub struct TemplateElement {
     pub value: String,
+    pub start: usize,
+    pub end: usize,
+    pub loc: Loc,
     pub extra: Option<Extra>,
+}
+
+impl TemplateElement {
+    pub fn new(value: String, start_loc: Loc, end_loc: Loc) -> Self {
+        TemplateElement {
+            value,
+            start: start_loc.start.index,
+            end: end_loc.end.index,
+            loc: Loc {
+                start: start_loc.start,
+                end: end_loc.end,
+            },
+            extra: None,
+        }
+    }
 }
 
 impl Node for TemplateElement {
     fn as_any(&self) -> &dyn Any {
         self
     }
-    fn set_parenthesized(&mut self, value: bool) {
-        self.extra = Some(Extra {
-            parenthesized: value,
-        });
+    fn set_parenthesized(&mut self, extra: Option<Extra>) {
+        self.extra = extra;
     }
     fn is_parenthesized(&self) -> bool {
         self.check_parenthesized(&self.extra)
@@ -268,17 +410,33 @@ impl Node for TemplateElement {
 #[derive(Clone, Debug)]
 pub struct ArrayExpression {
     pub elements: Vec<Box<dyn Node>>,
+    pub start: usize,
+    pub end: usize,
+    pub loc: Loc,
     pub extra: Option<Extra>,
+}
+
+impl ArrayExpression {
+    pub fn new(elements: Vec<Box<dyn Node>>, start_loc: Loc, end_loc: Loc) -> Self {
+        ArrayExpression {
+            elements,
+            start: start_loc.start.index,
+            end: end_loc.end.index,
+            loc: Loc {
+                start: start_loc.start,
+                end: end_loc.end,
+            },
+            extra: None,
+        }
+    }
 }
 
 impl Node for ArrayExpression {
     fn as_any(&self) -> &dyn Any {
         self
     }
-    fn set_parenthesized(&mut self, value: bool) {
-        self.extra = Some(Extra {
-            parenthesized: value,
-        });
+    fn set_parenthesized(&mut self, extra: Option<Extra>) {
+        self.extra = extra;
     }
     fn is_parenthesized(&self) -> bool {
         self.check_parenthesized(&self.extra)
@@ -292,17 +450,33 @@ impl Node for ArrayExpression {
 #[derive(Clone, Debug)]
 pub struct ObjectExpression {
     pub properties: Vec<Box<dyn Node>>,
+    pub start: usize,
+    pub end: usize,
+    pub loc: Loc,
     pub extra: Option<Extra>,
+}
+
+impl ObjectExpression {
+    pub fn new(properties: Vec<Box<dyn Node>>, start_loc: Loc, end_loc: Loc) -> Self {
+        ObjectExpression {
+            properties,
+            start: start_loc.start.index,
+            end: end_loc.end.index,
+            loc: Loc {
+                start: start_loc.start,
+                end: end_loc.end,
+            },
+            extra: None,
+        }
+    }
 }
 
 impl Node for ObjectExpression {
     fn as_any(&self) -> &dyn Any {
         self
     }
-    fn set_parenthesized(&mut self, value: bool) {
-        self.extra = Some(Extra {
-            parenthesized: value,
-        });
+    fn set_parenthesized(&mut self, extra: Option<Extra>) {
+        self.extra = extra;
     }
     fn is_parenthesized(&self) -> bool {
         self.check_parenthesized(&self.extra)
@@ -321,6 +495,24 @@ impl Node for ObjectExpression {
 pub struct ObjectProperty {
     pub key: Box<dyn Node>,
     pub value: Box<dyn Node>,
+    pub start: usize,
+    pub end: usize,
+    pub loc: Loc,
+}
+
+impl ObjectProperty {
+    pub fn new(key: Box<dyn Node>, value: Box<dyn Node>, start_loc: Loc, end_loc: Loc) -> Self {
+        ObjectProperty {
+            key,
+            value,
+            start: start_loc.start.index,
+            end: end_loc.end.index,
+            loc: Loc {
+                start: start_loc.start,
+                end: end_loc.end,
+            },
+        }
+    }
 }
 
 impl Node for ObjectProperty {
@@ -340,6 +532,31 @@ pub struct ObjectMethod {
     pub key: Box<dyn Node>,
     pub params: Vec<Box<dyn Node>>,
     pub body: Box<dyn Node>,
+    pub start: usize,
+    pub end: usize,
+    pub loc: Loc,
+}
+
+impl ObjectMethod {
+    pub fn new(
+        key: Box<dyn Node>,
+        params: Vec<Box<dyn Node>>,
+        body: Box<dyn Node>,
+        start_loc: Loc,
+        end_loc: Loc,
+    ) -> Self {
+        ObjectMethod {
+            key,
+            params,
+            body,
+            start: start_loc.start.index,
+            end: end_loc.end.index,
+            loc: Loc {
+                start: start_loc.start,
+                end: end_loc.end,
+            },
+        }
+    }
 }
 
 impl Node for ObjectMethod {
@@ -358,6 +575,23 @@ impl Node for ObjectMethod {
 #[derive(Clone, Debug)]
 pub struct ObjectPattern {
     pub properties: Vec<Box<dyn Node>>,
+    pub start: usize,
+    pub end: usize,
+    pub loc: Loc,
+}
+
+impl ObjectPattern {
+    pub fn new(properties: Vec<Box<dyn Node>>, start_loc: Loc, end_loc: Loc) -> Self {
+        ObjectPattern {
+            properties,
+            start: start_loc.start.index,
+            end: end_loc.end.index,
+            loc: Loc {
+                start: start_loc.start,
+                end: end_loc.end,
+            },
+        }
+    }
 }
 
 impl Node for ObjectPattern {
@@ -380,6 +614,23 @@ impl Node for ObjectPattern {
 #[derive(Clone, Debug)]
 pub struct ArrayPattern {
     pub elements: Vec<Box<dyn Node>>,
+    pub start: usize,
+    pub end: usize,
+    pub loc: Loc,
+}
+
+impl ArrayPattern {
+    pub fn new(elements: Vec<Box<dyn Node>>, start_loc: Loc, end_loc: Loc) -> Self {
+        ArrayPattern {
+            elements,
+            start: start_loc.start.index,
+            end: end_loc.end.index,
+            loc: Loc {
+                start: start_loc.start,
+                end: end_loc.end,
+            },
+        }
+    }
 }
 
 impl Node for ArrayPattern {
@@ -398,17 +649,33 @@ impl Node for ArrayPattern {
 #[derive(Clone, Debug)]
 pub struct SequenceExpression {
     pub expressions: Vec<Box<dyn Node>>,
+    pub start: usize,
+    pub end: usize,
+    pub loc: Loc,
     pub extra: Option<Extra>,
+}
+
+impl SequenceExpression {
+    pub fn new(expressions: Vec<Box<dyn Node>>, start_loc: Loc, end_loc: Loc) -> Self {
+        SequenceExpression {
+            expressions,
+            start: start_loc.start.index,
+            end: end_loc.end.index,
+            loc: Loc {
+                start: start_loc.start,
+                end: end_loc.end,
+            },
+            extra: None,
+        }
+    }
 }
 
 impl Node for SequenceExpression {
     fn as_any(&self) -> &dyn Any {
         self
     }
-    fn set_parenthesized(&mut self, value: bool) {
-        self.extra = Some(Extra {
-            parenthesized: value,
-        });
+    fn set_parenthesized(&mut self, extra: Option<Extra>) {
+        self.extra = extra;
     }
     fn is_parenthesized(&self) -> bool {
         self.check_parenthesized(&self.extra)
@@ -427,6 +694,29 @@ impl Node for SequenceExpression {
 pub struct VariableDeclaration {
     pub kind: Token,
     pub declarations: Vec<Box<dyn Node>>,
+    pub start: usize,
+    pub end: usize,
+    pub loc: Loc,
+}
+
+impl VariableDeclaration {
+    pub fn new(
+        kind: Token,
+        declarations: Vec<Box<dyn Node>>,
+        start_loc: Loc,
+        end_loc: Loc,
+    ) -> Self {
+        VariableDeclaration {
+            kind,
+            declarations,
+            start: start_loc.start.index,
+            end: end_loc.end.index,
+            loc: Loc {
+                start: start_loc.start,
+                end: end_loc.end,
+            },
+        }
+    }
 }
 
 impl Node for VariableDeclaration {
@@ -450,6 +740,29 @@ impl Node for VariableDeclaration {
 pub struct VariableDeclarator {
     pub id: Box<dyn Node>,
     pub init: Option<Box<dyn Node>>,
+    pub start: usize,
+    pub end: usize,
+    pub loc: Loc,
+}
+
+impl VariableDeclarator {
+    pub fn new(
+        id: Box<dyn Node>,
+        init: Option<Box<dyn Node>>,
+        start_loc: Loc,
+        end_loc: Loc,
+    ) -> Self {
+        VariableDeclarator {
+            id,
+            init,
+            start: start_loc.start.index,
+            end: end_loc.end.index,
+            loc: Loc {
+                start: start_loc.start,
+                end: end_loc.end,
+            },
+        }
+    }
 }
 
 impl Node for VariableDeclarator {
@@ -473,18 +786,41 @@ pub struct AssignmentExpression {
     pub left: Box<dyn Node>,
     pub operator: String,
     pub right: Box<dyn Node>,
-    pub extra: Option<Extra>,
+    pub start: usize,
+    pub end: usize,
     pub loc: Loc,
+    pub extra: Option<Extra>,
+}
+
+impl AssignmentExpression {
+    pub fn new(
+        left: Box<dyn Node>,
+        operator: String,
+        right: Box<dyn Node>,
+        start_loc: Loc,
+        end_loc: Loc,
+    ) -> Self {
+        AssignmentExpression {
+            left,
+            operator,
+            right,
+            start: start_loc.start.index,
+            end: end_loc.end.index,
+            loc: Loc {
+                start: start_loc.start,
+                end: end_loc.end,
+            },
+            extra: None,
+        }
+    }
 }
 
 impl Node for AssignmentExpression {
     fn as_any(&self) -> &dyn Any {
         self
     }
-    fn set_parenthesized(&mut self, value: bool) {
-        self.extra = Some(Extra {
-            parenthesized: value,
-        });
+    fn set_parenthesized(&mut self, extra: Option<Extra>) {
+        self.extra = extra;
     }
     fn is_parenthesized(&self) -> bool {
         self.check_parenthesized(&self.extra)
@@ -501,17 +837,41 @@ pub struct BinaryExpression {
     pub left: Box<dyn Node>,
     pub operator: String,
     pub right: Box<dyn Node>,
+    pub start: usize,
+    pub end: usize,
+    pub loc: Loc,
     pub extra: Option<Extra>,
+}
+
+impl BinaryExpression {
+    pub fn new(
+        left: Box<dyn Node>,
+        operator: String,
+        right: Box<dyn Node>,
+        start_loc: Loc,
+        end_loc: Loc,
+    ) -> Self {
+        BinaryExpression {
+            left,
+            operator,
+            right,
+            start: start_loc.start.index,
+            end: end_loc.end.index,
+            loc: Loc {
+                start: start_loc.start,
+                end: end_loc.end,
+            },
+            extra: None,
+        }
+    }
 }
 
 impl Node for BinaryExpression {
     fn as_any(&self) -> &dyn Any {
         self
     }
-    fn set_parenthesized(&mut self, value: bool) {
-        self.extra = Some(Extra {
-            parenthesized: value,
-        });
+    fn set_parenthesized(&mut self, extra: Option<Extra>) {
+        self.extra = extra;
     }
     fn is_parenthesized(&self) -> bool {
         self.check_parenthesized(&self.extra)
@@ -526,17 +886,41 @@ pub struct LogicalExpression {
     pub left: Box<dyn Node>,
     pub operator: String,
     pub right: Box<dyn Node>,
+    pub start: usize,
+    pub end: usize,
+    pub loc: Loc,
     pub extra: Option<Extra>,
+}
+
+impl LogicalExpression {
+    pub fn new(
+        left: Box<dyn Node>,
+        operator: String,
+        right: Box<dyn Node>,
+        start_loc: Loc,
+        end_loc: Loc,
+    ) -> Self {
+        LogicalExpression {
+            left,
+            operator,
+            right,
+            start: start_loc.start.index,
+            end: end_loc.end.index,
+            loc: Loc {
+                start: start_loc.start,
+                end: end_loc.end,
+            },
+            extra: None,
+        }
+    }
 }
 
 impl Node for LogicalExpression {
     fn as_any(&self) -> &dyn Any {
         self
     }
-    fn set_parenthesized(&mut self, value: bool) {
-        self.extra = Some(Extra {
-            parenthesized: value,
-        });
+    fn set_parenthesized(&mut self, extra: Option<Extra>) {
+        self.extra = extra;
     }
     fn is_parenthesized(&self) -> bool {
         self.check_parenthesized(&self.extra)
@@ -551,17 +935,41 @@ pub struct UnaryExpression {
     pub operator: String,
     pub prefix: bool,
     pub argument: Box<dyn Node>,
+    pub start: usize,
+    pub end: usize,
+    pub loc: Loc,
     pub extra: Option<Extra>,
+}
+
+impl UnaryExpression {
+    pub fn new(
+        operator: String,
+        prefix: bool,
+        argument: Box<dyn Node>,
+        start_loc: Loc,
+        end_loc: Loc,
+    ) -> Self {
+        UnaryExpression {
+            operator,
+            prefix,
+            argument,
+            start: start_loc.start.index,
+            end: end_loc.end.index,
+            loc: Loc {
+                start: start_loc.start,
+                end: end_loc.end,
+            },
+            extra: None,
+        }
+    }
 }
 
 impl Node for UnaryExpression {
     fn as_any(&self) -> &dyn Any {
         self
     }
-    fn set_parenthesized(&mut self, value: bool) {
-        self.extra = Some(Extra {
-            parenthesized: value,
-        });
+    fn set_parenthesized(&mut self, extra: Option<Extra>) {
+        self.extra = extra;
     }
     fn is_parenthesized(&self) -> bool {
         self.check_parenthesized(&self.extra)
@@ -579,17 +987,41 @@ pub struct UpdateExpression {
     pub operator: String,
     pub prefix: bool,
     pub argument: Box<dyn Node>,
+    pub start: usize,
+    pub end: usize,
+    pub loc: Loc,
     pub extra: Option<Extra>,
+}
+
+impl UpdateExpression {
+    pub fn new(
+        operator: String,
+        prefix: bool,
+        argument: Box<dyn Node>,
+        start_loc: Loc,
+        end_loc: Loc,
+    ) -> Self {
+        UpdateExpression {
+            operator,
+            prefix,
+            argument,
+            start: start_loc.start.index,
+            end: end_loc.end.index,
+            loc: Loc {
+                start: start_loc.start,
+                end: end_loc.end,
+            },
+            extra: None,
+        }
+    }
 }
 
 impl Node for UpdateExpression {
     fn as_any(&self) -> &dyn Any {
         self
     }
-    fn set_parenthesized(&mut self, value: bool) {
-        self.extra = Some(Extra {
-            parenthesized: value,
-        });
+    fn set_parenthesized(&mut self, extra: Option<Extra>) {
+        self.extra = extra;
     }
     fn is_parenthesized(&self) -> bool {
         self.check_parenthesized(&self.extra)
@@ -607,17 +1039,41 @@ pub struct MemberExpression {
     pub object: Box<dyn Node>,
     pub property: Box<dyn Node>,
     pub computed: bool,
+    pub start: usize,
+    pub end: usize,
+    pub loc: Loc,
     pub extra: Option<Extra>,
+}
+
+impl MemberExpression {
+    pub fn new(
+        object: Box<dyn Node>,
+        property: Box<dyn Node>,
+        computed: bool,
+        start_loc: Loc,
+        end_loc: Loc,
+    ) -> Self {
+        MemberExpression {
+            object,
+            property,
+            computed,
+            start: start_loc.start.index,
+            end: end_loc.end.index,
+            loc: Loc {
+                start: start_loc.start,
+                end: end_loc.end,
+            },
+            extra: None,
+        }
+    }
 }
 
 impl Node for MemberExpression {
     fn as_any(&self) -> &dyn Any {
         self
     }
-    fn set_parenthesized(&mut self, value: bool) {
-        self.extra = Some(Extra {
-            parenthesized: value,
-        });
+    fn set_parenthesized(&mut self, extra: Option<Extra>) {
+        self.extra = extra;
     }
     fn is_parenthesized(&self) -> bool {
         self.check_parenthesized(&self.extra)
@@ -635,17 +1091,41 @@ pub struct ConditionalExpression {
     pub test: Box<dyn Node>,
     pub consequent: Box<dyn Node>,
     pub alternate: Box<dyn Node>,
+    pub start: usize,
+    pub end: usize,
+    pub loc: Loc,
     pub extra: Option<Extra>,
+}
+
+impl ConditionalExpression {
+    pub fn new(
+        test: Box<dyn Node>,
+        consequent: Box<dyn Node>,
+        alternate: Box<dyn Node>,
+        start_loc: Loc,
+        end_loc: Loc,
+    ) -> Self {
+        ConditionalExpression {
+            test,
+            consequent,
+            alternate,
+            start: start_loc.start.index,
+            end: end_loc.end.index,
+            loc: Loc {
+                start: start_loc.start,
+                end: end_loc.end,
+            },
+            extra: None,
+        }
+    }
 }
 
 impl Node for ConditionalExpression {
     fn as_any(&self) -> &dyn Any {
         self
     }
-    fn set_parenthesized(&mut self, value: bool) {
-        self.extra = Some(Extra {
-            parenthesized: value,
-        });
+    fn set_parenthesized(&mut self, extra: Option<Extra>) {
+        self.extra = extra;
     }
     fn is_parenthesized(&self) -> bool {
         self.check_parenthesized(&self.extra)
@@ -663,17 +1143,39 @@ impl Node for ConditionalExpression {
 pub struct CallExpression {
     pub callee: Box<dyn Node>,
     pub arguments: Vec<Box<dyn Node>>,
+    pub start: usize,
+    pub end: usize,
+    pub loc: Loc,
     pub extra: Option<Extra>,
+}
+
+impl CallExpression {
+    pub fn new(
+        callee: Box<dyn Node>,
+        arguments: Vec<Box<dyn Node>>,
+        start_loc: Loc,
+        end_loc: Loc,
+    ) -> Self {
+        CallExpression {
+            callee,
+            arguments,
+            start: start_loc.start.index,
+            end: end_loc.end.index,
+            loc: Loc {
+                start: start_loc.start,
+                end: end_loc.end,
+            },
+            extra: None,
+        }
+    }
 }
 
 impl Node for CallExpression {
     fn as_any(&self) -> &dyn Any {
         self
     }
-    fn set_parenthesized(&mut self, value: bool) {
-        self.extra = Some(Extra {
-            parenthesized: value,
-        });
+    fn set_parenthesized(&mut self, extra: Option<Extra>) {
+        self.extra = extra;
     }
     fn is_parenthesized(&self) -> bool {
         self.check_parenthesized(&self.extra)
@@ -692,17 +1194,39 @@ impl Node for CallExpression {
 pub struct NewExpression {
     pub callee: Box<dyn Node>,
     pub arguments: Vec<Box<dyn Node>>,
+    pub start: usize,
+    pub end: usize,
+    pub loc: Loc,
     pub extra: Option<Extra>,
+}
+
+impl NewExpression {
+    pub fn new(
+        callee: Box<dyn Node>,
+        arguments: Vec<Box<dyn Node>>,
+        start_loc: Loc,
+        end_loc: Loc,
+    ) -> Self {
+        NewExpression {
+            callee,
+            arguments,
+            start: start_loc.start.index,
+            end: end_loc.end.index,
+            loc: Loc {
+                start: start_loc.start,
+                end: end_loc.end,
+            },
+            extra: None,
+        }
+    }
 }
 
 impl Node for NewExpression {
     fn as_any(&self) -> &dyn Any {
         self
     }
-    fn set_parenthesized(&mut self, value: bool) {
-        self.extra = Some(Extra {
-            parenthesized: value,
-        });
+    fn set_parenthesized(&mut self, extra: Option<Extra>) {
+        self.extra = extra;
     }
     fn is_parenthesized(&self) -> bool {
         self.check_parenthesized(&self.extra)
@@ -723,6 +1247,33 @@ pub struct ForStatement {
     pub test: Box<dyn Node>,
     pub update: Box<dyn Node>,
     pub body: Box<dyn Node>,
+    pub start: usize,
+    pub end: usize,
+    pub loc: Loc,
+}
+
+impl ForStatement {
+    pub fn new(
+        init: Box<dyn Node>,
+        test: Box<dyn Node>,
+        update: Box<dyn Node>,
+        body: Box<dyn Node>,
+        start_loc: Loc,
+        end_loc: Loc,
+    ) -> Self {
+        ForStatement {
+            init,
+            test,
+            update,
+            body,
+            start: start_loc.start.index,
+            end: end_loc.end.index,
+            loc: Loc {
+                start: start_loc.start,
+                end: end_loc.end,
+            },
+        }
+    }
 }
 
 impl Node for ForStatement {
@@ -750,6 +1301,31 @@ pub struct ForInStatement {
     pub left: Box<dyn Node>,
     pub right: Box<dyn Node>,
     pub body: Box<dyn Node>,
+    pub start: usize,
+    pub end: usize,
+    pub loc: Loc,
+}
+
+impl ForInStatement {
+    pub fn new(
+        left: Box<dyn Node>,
+        right: Box<dyn Node>,
+        body: Box<dyn Node>,
+        start_loc: Loc,
+        end_loc: Loc,
+    ) -> Self {
+        ForInStatement {
+            left,
+            right,
+            body,
+            start: start_loc.start.index,
+            end: end_loc.end.index,
+            loc: Loc {
+                start: start_loc.start,
+                end: end_loc.end,
+            },
+        }
+    }
 }
 
 impl Node for ForInStatement {
@@ -774,6 +1350,24 @@ impl Node for ForInStatement {
 pub struct WhileStatement {
     pub test: Box<dyn Node>,
     pub body: Box<dyn Node>,
+    pub start: usize,
+    pub end: usize,
+    pub loc: Loc,
+}
+
+impl WhileStatement {
+    pub fn new(test: Box<dyn Node>, body: Box<dyn Node>, start_loc: Loc, end_loc: Loc) -> Self {
+        WhileStatement {
+            test,
+            body,
+            start: start_loc.start.index,
+            end: end_loc.end.index,
+            loc: Loc {
+                start: start_loc.start,
+                end: end_loc.end,
+            },
+        }
+    }
 }
 
 impl Node for WhileStatement {
@@ -792,6 +1386,24 @@ impl Node for WhileStatement {
 pub struct DoWhileStatement {
     pub body: Box<dyn Node>,
     pub test: Box<dyn Node>,
+    pub start: usize,
+    pub end: usize,
+    pub loc: Loc,
+}
+
+impl DoWhileStatement {
+    pub fn new(body: Box<dyn Node>, test: Box<dyn Node>, start_loc: Loc, end_loc: Loc) -> Self {
+        DoWhileStatement {
+            body,
+            test,
+            start: start_loc.start.index,
+            end: end_loc.end.index,
+            loc: Loc {
+                start: start_loc.start,
+                end: end_loc.end,
+            },
+        }
+    }
 }
 
 impl Node for DoWhileStatement {
@@ -811,6 +1423,31 @@ pub struct FunctionDeclaration {
     pub id: Box<dyn Node>,
     pub params: Vec<Box<dyn Node>>,
     pub body: Box<dyn Node>,
+    pub start: usize,
+    pub end: usize,
+    pub loc: Loc,
+}
+
+impl FunctionDeclaration {
+    pub fn new(
+        id: Box<dyn Node>,
+        params: Vec<Box<dyn Node>>,
+        body: Box<dyn Node>,
+        start_loc: Loc,
+        end_loc: Loc,
+    ) -> Self {
+        FunctionDeclaration {
+            id,
+            params,
+            body,
+            start: start_loc.start.index,
+            end: end_loc.end.index,
+            loc: Loc {
+                start: start_loc.start,
+                end: end_loc.end,
+            },
+        }
+    }
 }
 
 impl Node for FunctionDeclaration {
@@ -836,18 +1473,41 @@ pub struct FunctionExpression {
     pub id: Option<Box<dyn Node>>,
     pub params: Vec<Box<dyn Node>>,
     pub body: Box<dyn Node>,
+    pub start: usize,
+    pub end: usize,
     pub loc: Loc,
     pub extra: Option<Extra>,
+}
+
+impl FunctionExpression {
+    pub fn new(
+        id: Option<Box<dyn Node>>,
+        params: Vec<Box<dyn Node>>,
+        body: Box<dyn Node>,
+        start_loc: Loc,
+        end_loc: Loc,
+    ) -> Self {
+        FunctionExpression {
+            id,
+            params,
+            body,
+            start: start_loc.start.index,
+            end: end_loc.end.index,
+            loc: Loc {
+                start: start_loc.start,
+                end: end_loc.end,
+            },
+            extra: None,
+        }
+    }
 }
 
 impl Node for FunctionExpression {
     fn as_any(&self) -> &dyn Any {
         self
     }
-    fn set_parenthesized(&mut self, value: bool) {
-        self.extra = Some(Extra {
-            parenthesized: value,
-        });
+    fn set_parenthesized(&mut self, extra: Option<Extra>) {
+        self.extra = extra;
     }
     fn is_parenthesized(&self) -> bool {
         self.check_parenthesized(&self.extra)
@@ -867,17 +1527,39 @@ impl Node for FunctionExpression {
 pub struct ArrowFunctionExpression {
     pub params: Vec<Box<dyn Node>>,
     pub body: Box<dyn Node>,
+    pub start: usize,
+    pub end: usize,
+    pub loc: Loc,
     pub extra: Option<Extra>,
+}
+
+impl ArrowFunctionExpression {
+    pub fn new(
+        params: Vec<Box<dyn Node>>,
+        body: Box<dyn Node>,
+        start_loc: Loc,
+        end_loc: Loc,
+    ) -> Self {
+        ArrowFunctionExpression {
+            params,
+            body,
+            start: start_loc.start.index,
+            end: end_loc.end.index,
+            loc: Loc {
+                start: start_loc.start,
+                end: end_loc.end,
+            },
+            extra: None,
+        }
+    }
 }
 
 impl Node for ArrowFunctionExpression {
     fn as_any(&self) -> &dyn Any {
         self
     }
-    fn set_parenthesized(&mut self, value: bool) {
-        self.extra = Some(Extra {
-            parenthesized: value,
-        });
+    fn set_parenthesized(&mut self, extra: Option<Extra>) {
+        self.extra = extra;
     }
     fn is_parenthesized(&self) -> bool {
         self.check_parenthesized(&self.extra)
@@ -890,17 +1572,32 @@ impl Node for ArrowFunctionExpression {
 
 #[derive(Clone, Debug)]
 pub struct ThisExpression {
+    pub start: usize,
+    pub end: usize,
+    pub loc: Loc,
     pub extra: Option<Extra>,
+}
+
+impl ThisExpression {
+    pub fn new(start_loc: Loc, end_loc: Loc) -> Self {
+        ThisExpression {
+            start: start_loc.start.index,
+            end: end_loc.end.index,
+            loc: Loc {
+                start: start_loc.start,
+                end: end_loc.end,
+            },
+            extra: None,
+        }
+    }
 }
 
 impl Node for ThisExpression {
     fn as_any(&self) -> &dyn Any {
         self
     }
-    fn set_parenthesized(&mut self, value: bool) {
-        self.extra = Some(Extra {
-            parenthesized: value,
-        });
+    fn set_parenthesized(&mut self, extra: Option<Extra>) {
+        self.extra = extra;
     }
     fn is_parenthesized(&self) -> bool {
         self.check_parenthesized(&self.extra)
@@ -914,6 +1611,24 @@ impl Node for ThisExpression {
 pub struct AssignmentPattern {
     pub left: Box<dyn Node>,
     pub right: Box<dyn Node>,
+    pub start: usize,
+    pub end: usize,
+    pub loc: Loc,
+}
+
+impl AssignmentPattern {
+    pub fn new(left: Box<dyn Node>, right: Box<dyn Node>, start_loc: Loc, end_loc: Loc) -> Self {
+        AssignmentPattern {
+            left,
+            right,
+            start: start_loc.start.index,
+            end: end_loc.end.index,
+            loc: Loc {
+                start: start_loc.start,
+                end: end_loc.end,
+            },
+        }
+    }
 }
 
 impl Node for AssignmentPattern {
@@ -931,6 +1646,23 @@ impl Node for AssignmentPattern {
 #[derive(Clone, Debug)]
 pub struct BlockStatement {
     pub body: Vec<Box<dyn Node>>,
+    pub start: usize,
+    pub end: usize,
+    pub loc: Loc,
+}
+
+impl BlockStatement {
+    pub fn new(body: Vec<Box<dyn Node>>, start_loc: Loc, end_loc: Loc) -> Self {
+        BlockStatement {
+            body,
+            start: start_loc.start.index,
+            end: end_loc.end.index,
+            loc: Loc {
+                start: start_loc.start,
+                end: end_loc.end,
+            },
+        }
+    }
 }
 
 impl Node for BlockStatement {
@@ -952,6 +1684,31 @@ pub struct IfStatement {
     pub test: Box<dyn Node>,
     pub consequent: Box<dyn Node>,
     pub alternate: Option<Box<dyn Node>>,
+    pub start: usize,
+    pub end: usize,
+    pub loc: Loc,
+}
+
+impl IfStatement {
+    pub fn new(
+        test: Box<dyn Node>,
+        consequent: Box<dyn Node>,
+        alternate: Option<Box<dyn Node>>,
+        start_loc: Loc,
+        end_loc: Loc,
+    ) -> Self {
+        IfStatement {
+            test,
+            consequent,
+            alternate,
+            start: start_loc.start.index,
+            end: end_loc.end.index,
+            loc: Loc {
+                start: start_loc.start,
+                end: end_loc.end,
+            },
+        }
+    }
 }
 
 impl Node for IfStatement {
@@ -979,6 +1736,31 @@ pub struct TryStatement {
     pub block: Box<dyn Node>,
     pub handle: Option<Box<dyn Node>>,
     pub finalizer: Option<Box<dyn Node>>,
+    pub start: usize,
+    pub end: usize,
+    pub loc: Loc,
+}
+
+impl TryStatement {
+    pub fn new(
+        block: Box<dyn Node>,
+        handle: Option<Box<dyn Node>>,
+        finalizer: Option<Box<dyn Node>>,
+        start_loc: Loc,
+        end_loc: Loc,
+    ) -> Self {
+        TryStatement {
+            block,
+            handle,
+            finalizer,
+            start: start_loc.start.index,
+            end: end_loc.end.index,
+            loc: Loc {
+                start: start_loc.start,
+                end: end_loc.end,
+            },
+        }
+    }
 }
 
 impl Node for TryStatement {
@@ -1006,6 +1788,29 @@ impl Node for TryStatement {
 pub struct CatchClause {
     pub param: Option<Box<dyn Node>>,
     pub body: Box<dyn Node>,
+    pub start: usize,
+    pub end: usize,
+    pub loc: Loc,
+}
+
+impl CatchClause {
+    pub fn new(
+        param: Option<Box<dyn Node>>,
+        body: Box<dyn Node>,
+        start_loc: Loc,
+        end_loc: Loc,
+    ) -> Self {
+        CatchClause {
+            param,
+            body,
+            start: start_loc.start.index,
+            end: end_loc.end.index,
+            loc: Loc {
+                start: start_loc.start,
+                end: end_loc.end,
+            },
+        }
+    }
 }
 
 impl Node for CatchClause {
@@ -1026,6 +1831,23 @@ impl Node for CatchClause {
 #[derive(Clone, Debug)]
 pub struct ReturnStatement {
     pub argument: Option<Box<dyn Node>>,
+    pub start: usize,
+    pub end: usize,
+    pub loc: Loc,
+}
+
+impl ReturnStatement {
+    pub fn new(argument: Option<Box<dyn Node>>, start_loc: Loc, end_loc: Loc) -> Self {
+        ReturnStatement {
+            argument,
+            start: start_loc.start.index,
+            end: end_loc.end.index,
+            loc: Loc {
+                start: start_loc.start,
+                end: end_loc.end,
+            },
+        }
+    }
 }
 
 impl Node for ReturnStatement {
@@ -1047,6 +1869,29 @@ impl Node for ReturnStatement {
 pub struct SwitchStatement {
     pub discriminant: Box<dyn Node>,
     pub cases: Vec<Box<dyn Node>>,
+    pub start: usize,
+    pub end: usize,
+    pub loc: Loc,
+}
+
+impl SwitchStatement {
+    pub fn new(
+        discriminant: Box<dyn Node>,
+        cases: Vec<Box<dyn Node>>,
+        start_loc: Loc,
+        end_loc: Loc,
+    ) -> Self {
+        SwitchStatement {
+            discriminant,
+            cases,
+            start: start_loc.start.index,
+            end: end_loc.end.index,
+            loc: Loc {
+                start: start_loc.start,
+                end: end_loc.end,
+            },
+        }
+    }
 }
 
 impl Node for SwitchStatement {
@@ -1066,6 +1911,29 @@ impl Node for SwitchStatement {
 pub struct SwitchCase {
     pub test: Option<Box<dyn Node>>,
     pub consequent: Vec<Box<dyn Node>>,
+    pub start: usize,
+    pub end: usize,
+    pub loc: Loc,
+}
+
+impl SwitchCase {
+    pub fn new(
+        test: Option<Box<dyn Node>>,
+        consequent: Vec<Box<dyn Node>>,
+        start_loc: Loc,
+        end_loc: Loc,
+    ) -> Self {
+        SwitchCase {
+            test,
+            consequent,
+            start: start_loc.start.index,
+            end: end_loc.end.index,
+            loc: Loc {
+                start: start_loc.start,
+                end: end_loc.end,
+            },
+        }
+    }
 }
 
 impl Node for SwitchCase {
@@ -1092,6 +1960,24 @@ impl Node for SwitchCase {
 pub struct LabeledStatement {
     pub label: Box<dyn Node>,
     pub body: Box<dyn Node>,
+    pub start: usize,
+    pub end: usize,
+    pub loc: Loc,
+}
+
+impl LabeledStatement {
+    pub fn new(label: Box<dyn Node>, body: Box<dyn Node>, start_loc: Loc, end_loc: Loc) -> Self {
+        LabeledStatement {
+            label,
+            body,
+            start: start_loc.start.index,
+            end: end_loc.end.index,
+            loc: Loc {
+                start: start_loc.start,
+                end: end_loc.end,
+            },
+        }
+    }
 }
 
 impl Node for LabeledStatement {
@@ -1109,6 +1995,23 @@ impl Node for LabeledStatement {
 #[derive(Clone, Debug)]
 pub struct BreakStatement {
     pub label: Option<Box<dyn Node>>,
+    pub start: usize,
+    pub end: usize,
+    pub loc: Loc,
+}
+
+impl BreakStatement {
+    pub fn new(label: Option<Box<dyn Node>>, start_loc: Loc, end_loc: Loc) -> Self {
+        BreakStatement {
+            label,
+            start: start_loc.start.index,
+            end: end_loc.end.index,
+            loc: Loc {
+                start: start_loc.start,
+                end: end_loc.end,
+            },
+        }
+    }
 }
 
 impl Node for BreakStatement {
@@ -1129,6 +2032,23 @@ impl Node for BreakStatement {
 #[derive(Clone, Debug)]
 pub struct ContinueStatement {
     pub label: Option<Box<dyn Node>>,
+    pub start: usize,
+    pub end: usize,
+    pub loc: Loc,
+}
+
+impl ContinueStatement {
+    pub fn new(label: Option<Box<dyn Node>>, start_loc: Loc, end_loc: Loc) -> Self {
+        ContinueStatement {
+            label,
+            start: start_loc.start.index,
+            end: end_loc.end.index,
+            loc: Loc {
+                start: start_loc.start,
+                end: end_loc.end,
+            },
+        }
+    }
 }
 
 impl Node for ContinueStatement {
@@ -1149,6 +2069,23 @@ impl Node for ContinueStatement {
 #[derive(Clone, Debug)]
 pub struct ThrowStatement {
     pub argument: Box<dyn Node>,
+    pub start: usize,
+    pub end: usize,
+    pub loc: Loc,
+}
+
+impl ThrowStatement {
+    pub fn new(argument: Box<dyn Node>, start_loc: Loc, end_loc: Loc) -> Self {
+        ThrowStatement {
+            argument,
+            start: start_loc.start.index,
+            end: end_loc.end.index,
+            loc: Loc {
+                start: start_loc.start,
+                end: end_loc.end,
+            },
+        }
+    }
 }
 
 impl Node for ThrowStatement {

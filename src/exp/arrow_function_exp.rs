@@ -14,6 +14,8 @@ pub fn build_possible_arrow_function(parser: &mut Parser) -> Result<Box<dyn Node
     let body: Box<dyn Node>;
 
     parser.regex_allowed = true;
+    let parenthesis_index = parser.loc.start.index;
+    let start_loc = parser.loc.clone();
     expect(parser, "(")?;
     parser.is_arrow_function = IsArrowFunction::Maybe;
     loop {
@@ -45,6 +47,7 @@ pub fn build_possible_arrow_function(parser: &mut Parser) -> Result<Box<dyn Node
         }
     }
 
+    let end_loc = parser.loc.clone();
     expect(parser, ")")?;
     if !is_ctrl_word(&parser.current, "=>") {
         return if parser.is_arrow_function == IsArrowFunction::Must {
@@ -54,15 +57,18 @@ pub fn build_possible_arrow_function(parser: &mut Parser) -> Result<Box<dyn Node
                 Err("syntax error, ()".to_string())
             } else if params.len() == 1 {
                 let mut n = params.remove(0);
-                n.set_parenthesized(true);
+                n.set_parenthesized(Some(Extra {
+                    parenthesized: true,
+                    paren_start: parenthesis_index,
+                }));
                 Ok(n)
             } else {
-                Ok(Box::new(SequenceExpression {
-                    expressions: params,
-                    extra: Some(Extra {
-                        parenthesized: true,
-                    }),
-                }))
+                let mut exp = SequenceExpression::new(params, start_loc, end_loc);
+                exp.set_parenthesized(Some(Extra {
+                    parenthesized: true,
+                    paren_start: parenthesis_index,
+                }));
+                Ok(Box::new(exp))
             }
         };
     }
@@ -76,13 +82,16 @@ pub fn build_possible_arrow_function(parser: &mut Parser) -> Result<Box<dyn Node
     } else {
         body = parse_expression(parser, 2)?
     }
-
-    Ok(Box::new(ArrowFunctionExpression { params, body, extra: None }))
+    let end_loc = parser.loc.clone();
+    Ok(Box::new(ArrowFunctionExpression::new(
+        params, body, start_loc, end_loc,
+    )))
 }
 
 fn build_possible_object(parser: &mut Parser) -> Result<Box<dyn Node>, String> {
     let mut properties: Vec<Box<dyn Node>> = vec![];
 
+    let start_loc = parser.loc.clone();
     expect(parser, "{")?;
     loop {
         if is_ctrl_word(&parser.current, "}") {
@@ -97,25 +106,28 @@ fn build_possible_object(parser: &mut Parser) -> Result<Box<dyn Node>, String> {
 
         match &*parser.current {
             Token::Variable(s) => {
-                key = Box::new(Identity {
-                    name: s.to_string(),
-                    extra: None,
-                });
+                key = Box::new(Identity::new(
+                    s.to_string(),
+                    start_loc.clone(),
+                    parser.loc.clone(),
+                ));
             }
             Token::String(s, is_single_quoted) => {
                 parser.is_arrow_function = IsArrowFunction::Impossible;
-                key = Box::new(StringLiteral {
-                    value: s.to_string(),
-                    is_single_quoted: *is_single_quoted,
-                    extra: None,
-                });
+                key = Box::new(StringLiteral::new(
+                    s.to_string(),
+                    *is_single_quoted,
+                    start_loc.clone(),
+                    parser.loc.clone(),
+                ));
             }
             Token::Digit(s) => {
                 parser.is_arrow_function = IsArrowFunction::Impossible;
-                key = Box::new(NumericLiteral {
-                    value: s.to_string(),
-                    extra: None,
-                });
+                key = Box::new(NumericLiteral::new(
+                    s.to_string(),
+                    start_loc.clone(),
+                    parser.loc.clone(),
+                ));
             }
             _ => {
                 return Err("object property type error".to_string());
@@ -126,44 +138,54 @@ fn build_possible_object(parser: &mut Parser) -> Result<Box<dyn Node>, String> {
             parser.regex_allowed = true;
             parser.next()?;
             if is_ctrl_word(&parser.current, "{") {
-                properties.push(Box::new(ObjectProperty {
+                properties.push(Box::new(ObjectProperty::new(
                     key,
-                    value: build_possible_object(parser)?,
-                }));
+                    build_possible_object(parser)?,
+                    start_loc.clone(),
+                    parser.loc.clone(),
+                )));
             } else if is_ctrl_word(&parser.current, "[") {
-                properties.push(Box::new(ObjectProperty {
+                properties.push(Box::new(ObjectProperty::new(
                     key,
-                    value: build_possible_array(parser)?,
-                }));
+                    build_possible_array(parser)?,
+                    start_loc.clone(),
+                    parser.loc.clone(),
+                )));
             } else {
                 parser.is_arrow_function = IsArrowFunction::Impossible;
-                properties.push(Box::new(ObjectProperty {
+                properties.push(Box::new(ObjectProperty::new(
                     key,
-                    value: parse_expression(parser, 2)?,
-                }));
+                    parse_expression(parser, 2)?,
+                    start_loc.clone(),
+                    parser.loc.clone(),
+                )));
             }
         } else if is_ctrl_word(&parser.current, "=") {
             parser.is_arrow_function = IsArrowFunction::Must;
             parser.regex_allowed = true;
             parser.next()?;
             let default_value = parse_expression(parser, 2)?;
-            properties.push(Box::new(AssignmentPattern {
-                left: key,
-                right: default_value,
-            }))
+            properties.push(Box::new(AssignmentPattern::new(
+                key,
+                default_value,
+                start_loc.clone(),
+                parser.loc.clone(),
+            )))
         }
     }
 
     expect(parser, "}")?;
-    Ok(Box::new(ObjectExpression {
+    Ok(Box::new(ObjectExpression::new(
         properties,
-        extra: None,
-    }))
+        start_loc.clone(),
+        parser.loc.clone(),
+    )))
 }
 
 fn build_possible_array(parser: &mut Parser) -> Result<Box<dyn Node>, String> {
     let mut elements: Vec<Box<dyn Node>> = vec![];
     parser.regex_allowed = true;
+    let start_loc = parser.loc.clone();
     parser.next()?;
     loop {
         if is_ctrl_word(&parser.current, "]") {
@@ -181,10 +203,11 @@ fn build_possible_array(parser: &mut Parser) -> Result<Box<dyn Node>, String> {
         }
     }
     expect(parser, "]")?;
-    Ok(Box::new(ArrayExpression {
+    Ok(Box::new(ArrayExpression::new(
         elements,
-        extra: None,
-    }))
+        start_loc,
+        parser.loc.clone(),
+    )))
 }
 /*
 fn convert_params(properties: Vec<Box<dyn Node>>) {

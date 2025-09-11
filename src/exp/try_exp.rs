@@ -9,6 +9,7 @@ pub fn build_try(parser: &mut Parser) -> Result<Box<dyn Node>, String> {
     let handle: Option<Box<dyn Node>>;
     let finalizer: Option<Box<dyn Node>>;
 
+    let start_loc = parser.loc.clone();
     expect_keyword(&parser.current, Token::Try)?;
     parser.next()?;
 
@@ -26,10 +27,11 @@ pub fn build_try(parser: &mut Parser) -> Result<Box<dyn Node>, String> {
             } else if is_ctrl_word(&parser.current, "{") {
                 return Err("catch({}) unsupported now".to_string());
             } else if let Token::Variable(s) = &*parser.current {
-                param = Some(Box::new(Identity {
-                    name: s.to_string(),
-                    extra: None
-                }));
+                param = Some(Box::new(Identity::new(
+                    s.to_string(),
+                    start_loc.clone(),
+                    parser.last_loc.clone(),
+                )));
                 parser.next()?;
                 if is_ctrl_word(&parser.current, ")") {
                     parser.next()?;
@@ -40,10 +42,20 @@ pub fn build_try(parser: &mut Parser) -> Result<Box<dyn Node>, String> {
                 return Err("catch param error".to_string());
             }
             body = Parser::parse_block(parser)?;
-            handle = Some(Box::new(CatchClause { param, body }))
+            handle = Some(Box::new(CatchClause::new(
+                param,
+                body,
+                start_loc.clone(),
+                parser.last_loc.clone(),
+            )))
         } else if is_ctrl_word(&parser.current, "{") {
             body = Parser::parse_block(parser)?;
-            handle = Some(Box::new(CatchClause { param: None, body }))
+            handle = Some(Box::new(CatchClause::new(
+                None,
+                body,
+                start_loc.clone(),
+                parser.last_loc.clone(),
+            )))
         } else {
             return Err("catch syntax error".to_string());
         }
@@ -61,11 +73,13 @@ pub fn build_try(parser: &mut Parser) -> Result<Box<dyn Node>, String> {
         return Err("expect catch or finally".to_string());
     }
 
-    Ok(Box::new(TryStatement {
+    Ok(Box::new(TryStatement::new(
         block,
         handle,
         finalizer,
-    }))
+        start_loc.clone(),
+        parser.last_loc.clone(),
+    )))
 }
 
 #[cfg(test)]
