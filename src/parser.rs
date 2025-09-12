@@ -231,7 +231,7 @@ impl Parser {
                     }
                     "}" => break,
                     ";" => {
-                        ast.push(Box::new(EmptyStatement::new()));
+                        ast.push(Box::new(EmptyStatement::new(self.loc.clone(), self.loc.clone())));
                         self.regex_allowed = true;
                         self.next()?;
                         continue;
@@ -254,12 +254,9 @@ impl Parser {
         }
         self.regex_allowed = true;
         self.next()?;
-        consequent = Box::new(BlockStatement::new(
-            Parser::parse_statement_list(self)?,
-            start_loc.clone(),
-            self.last_loc.clone(),
-        ));
+        let body = Parser::parse_statement_list(self)?;
         expect(self, "}")?;
+        consequent = Box::new(BlockStatement::new(body, start_loc, self.last_loc.clone()));
         Ok(consequent)
     }
 
@@ -268,7 +265,7 @@ impl Parser {
         if is_ctrl_word(&self.current, "{") {
             body = Parser::parse_block(self)?;
         } else if is_ctrl_word(&self.current, ";") {
-            body = Box::new(EmptyStatement::new());
+            body = Box::new(EmptyStatement::new(self.loc.clone(), self.loc.clone()));
             self.regex_allowed = true;
             self.next()?;
         } else {

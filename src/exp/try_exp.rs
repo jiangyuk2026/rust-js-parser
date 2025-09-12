@@ -15,6 +15,7 @@ pub fn build_try(parser: &mut Parser) -> Result<Box<dyn Node>, String> {
 
     block = Parser::parse_block(parser)?;
 
+    let catch_start_loc = parser.loc.clone();
     if *parser.current == Token::Catch {
         let param: Option<Box<dyn Node>>;
         let body: Box<dyn Node>;
@@ -29,8 +30,8 @@ pub fn build_try(parser: &mut Parser) -> Result<Box<dyn Node>, String> {
             } else if let Token::Variable(s) = &*parser.current {
                 param = Some(Box::new(Identity::new(
                     s.to_string(),
-                    start_loc.clone(),
-                    parser.last_loc.clone(),
+                    parser.loc.clone(),
+                    parser.loc.clone(),
                 )));
                 parser.next()?;
                 if is_ctrl_word(&parser.current, ")") {
@@ -45,7 +46,7 @@ pub fn build_try(parser: &mut Parser) -> Result<Box<dyn Node>, String> {
             handle = Some(Box::new(CatchClause::new(
                 param,
                 body,
-                start_loc.clone(),
+                catch_start_loc.clone(),
                 parser.last_loc.clone(),
             )))
         } else if is_ctrl_word(&parser.current, "{") {
@@ -53,7 +54,7 @@ pub fn build_try(parser: &mut Parser) -> Result<Box<dyn Node>, String> {
             handle = Some(Box::new(CatchClause::new(
                 None,
                 body,
-                start_loc.clone(),
+                catch_start_loc.clone(),
                 parser.last_loc.clone(),
             )))
         } else {

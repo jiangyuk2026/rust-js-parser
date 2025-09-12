@@ -2,15 +2,15 @@ use crate::exp::declaration_exp::build_let;
 use crate::express::{expect, expect_keyword, is_ctrl_word, parse_expression};
 use crate::node::Node;
 use crate::node::{
-    EmptyStatement, ForInStatement, ForStatement, Identity, VariableDeclaration, VariableDeclarator,
+    ForInStatement, ForStatement, Identity, VariableDeclaration, VariableDeclarator,
 };
 use crate::parser::{IsForIn, Parser};
 use crate::token::Token;
 
 pub fn build_for(parser: &mut Parser) -> Result<Box<dyn Node>, String> {
-    let init: Box<dyn Node>;
-    let test: Box<dyn Node>;
-    let update: Box<dyn Node>;
+    let init: Option<Box<dyn Node>>;
+    let test: Option<Box<dyn Node>>;
+    let update: Option<Box<dyn Node>>;
     let start_loc = parser.loc.clone();
     expect_keyword(&parser.current, Token::For)?;
     parser.next()?;
@@ -22,19 +22,19 @@ pub fn build_for(parser: &mut Parser) -> Result<Box<dyn Node>, String> {
         || *parser.current == Token::Var
         || *parser.current == Token::Const
     {
-        init = build_let(parser)?;
+        init = Some(build_let(parser)?);
         if *parser.current == Token::In {
             parser.is_for_in = IsForIn::Must;
-            is_single_variable_without_value(&*init)?;
+            is_single_variable_without_value(&*init.clone().unwrap())?;
             parser.regex_allowed = true;
             parser.next()?;
         } else {
             parser.is_for_in = IsForIn::Impossible;
         }
     } else if let Token::Variable(_) = &*parser.current {
-        init = parse_expression(parser, 0)?;
+        init = Some(parse_expression(parser, 0)?);
         if *parser.current == Token::In {
-            if !init.as_any().is::<Identity>() {
+            if !init.clone().unwrap().as_any().is::<Identity>() {
                 return Err("for in: syntax error".to_string());
             }
             parser.regex_allowed = true;
@@ -46,9 +46,9 @@ pub fn build_for(parser: &mut Parser) -> Result<Box<dyn Node>, String> {
     } else {
         parser.is_for_in = IsForIn::Impossible;
         if is_ctrl_word(&parser.current, ";") {
-            init = Box::new(EmptyStatement {});
+            init = None;
         } else {
-            init = parse_expression(parser, 0)?;
+            init = Some(parse_expression(parser, 0)?);
         }
     }
     parser.in_for_init = false;
@@ -59,7 +59,7 @@ pub fn build_for(parser: &mut Parser) -> Result<Box<dyn Node>, String> {
         expect(parser, ")")?;
         let body = parser.build_maybe_empty_body()?;
         return Ok(Box::new(ForInStatement::new(
-            init,
+            init.unwrap(),
             right,
             body,
             start_loc,
@@ -69,16 +69,16 @@ pub fn build_for(parser: &mut Parser) -> Result<Box<dyn Node>, String> {
     parser.regex_allowed = true;
     expect(parser, ";")?;
     if is_ctrl_word(&parser.current, ";") {
-        test = Box::new(EmptyStatement {});
+        test = None;
     } else {
-        test = parse_expression(parser, 0)?;
+        test = Some(parse_expression(parser, 0)?);
     }
     parser.regex_allowed = true;
     expect(parser, ";")?;
     if is_ctrl_word(&parser.current, ")") {
-        update = Box::new(EmptyStatement {});
+        update = None;
     } else {
-        update = parse_expression(parser, 0)?;
+        update = Some(parse_expression(parser, 0)?);
     }
     parser.regex_allowed = true;
     expect(parser, ")")?;

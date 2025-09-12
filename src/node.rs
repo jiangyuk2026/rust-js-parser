@@ -1,4 +1,4 @@
-use crate::lex::Loc;
+use crate::lex::{Loc, Position};
 use crate::token::Token;
 use std::any::Any;
 use std::fmt::{Debug, Formatter, Pointer};
@@ -7,6 +7,63 @@ use std::fmt::{Debug, Formatter, Pointer};
 pub struct Extra {
     pub parenthesized: bool,
     pub paren_start: usize,
+}
+
+pub struct PrintContext {
+    line: usize,
+    column: usize,
+    index: usize,
+    pub output: String,
+}
+
+impl PrintContext {
+    pub fn new() -> Self {
+        PrintContext {
+            line: 1,
+            column: 1,
+            index: 0,
+            output: String::new(),
+        }
+    }
+    pub fn add_text(&mut self, text: &str) {
+        self.output.push_str(text);
+        self.index += text.len();
+    }
+    pub fn add_start_loc_text(&mut self, pos: &Position, text: &str) {
+        self.padding(&Position {
+            line: pos.line,
+            column: pos.column,
+            index: pos.index - 1,
+        });
+        self.add_text(text);
+    }
+    pub fn add_end_loc_text(&mut self, pos: &Position, text: &str) {
+        self.padding(&Position {
+            line: pos.line,
+            column: pos.column,
+            index: pos.index - text.len(),
+        });
+        self.add_text(text);
+    }
+    pub fn padding(&mut self, pos: &Position) {
+        let mut result = "".to_string();
+        if self.line > pos.line {
+            panic!("loc line error, {:#?}", pos)
+        }
+        while self.line < pos.line {
+            self.line += 1;
+            result += "\n";
+        }
+        if self.index > pos.index {
+            panic!("loc index error, {:#?}", pos)
+        }
+        while pos.index > 0 && self.index < pos.index - 1 {
+            println!("{}, {}", self.index, pos.index);
+            self.index += 1;
+            result += " ";
+        }
+        self.output.push_str(&result);
+    }
 }
 
 pub trait NodeClone {
@@ -30,7 +87,8 @@ where
 pub trait Node: NodeClone + Debug {
     fn as_any(&self) -> &dyn Any;
     fn set_parenthesized(&mut self, _extra: Option<Extra>) {}
-    fn is_parenthesized(&self) -> bool;
+    fn get_extra(&self) -> &Option<Extra>;
+    fn get_loc(&self) -> &Loc;
     fn check_parenthesized(&self, extra: &Option<Extra>) -> bool {
         if let Some(extra) = &extra {
             if extra.parenthesized { true } else { false }
@@ -38,14 +96,25 @@ pub trait Node: NodeClone + Debug {
             false
         }
     }
-    fn print_node(&self) -> String {
-        let node_text = self.print_node_inner();
-        if self.is_parenthesized() {
-            return format!("({})", node_text);
+    fn print_node(&self, print_context: &mut PrintContext) {
+        let extra = self.get_extra();
+        let loc = self.get_loc();
+        if self.check_parenthesized(extra) {
+            print_context.padding(&Position {
+                line: loc.start.line,
+                column: loc.start.column,
+                index: loc.start.index - 1,
+            });
+            print_context.add_text("(");
+        } else {
+            print_context.padding(&loc.start);
         }
-        node_text
+        self.print_node_inner(print_context);
+        if self.check_parenthesized(extra) {
+            print_context.add_text(")");
+        }
     }
-    fn print_node_inner(&self) -> String;
+    fn print_node_inner(&self, print_context: &mut PrintContext);
 }
 
 impl Clone for Box<dyn Node> {
@@ -53,30 +122,40 @@ impl Clone for Box<dyn Node> {
         self.clone_box()
     }
 }
-//
-// impl Debug for Box<dyn Node> {
-//     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-//         Debug::fmt(&**self, f)
-//     }
-// }
 
 #[derive(Clone, Debug)]
-pub struct EmptyStatement {}
+pub struct EmptyStatement {
+    pub start: usize,
+    pub end: usize,
+    pub loc: Loc,
+}
+
 impl EmptyStatement {
-    pub fn new() -> EmptyStatement {
-        EmptyStatement {}
+    pub fn new(start_loc: Loc, end_loc: Loc) -> EmptyStatement {
+        EmptyStatement {
+            start: start_loc.start.index,
+            end: end_loc.end.index,
+            loc: Loc {
+                start: start_loc.start,
+                end: end_loc.end,
+            },
+        }
     }
 }
+
 impl Node for EmptyStatement {
     fn as_any(&self) -> &dyn Any {
         self
     }
-    fn is_parenthesized(&self) -> bool {
-        false
+    fn get_extra(&self) -> &Option<Extra> {
+        &None
     }
-    fn print_node_inner(&self) -> String {
-        "".to_string()
+
+    fn get_loc(&self) -> &Loc {
+        &self.loc
     }
+
+    fn print_node_inner(&self, print_context: &mut PrintContext) {}
 }
 
 #[derive(Clone, Debug)]
@@ -110,11 +189,14 @@ impl Node for Identity {
     fn set_parenthesized(&mut self, extra: Option<Extra>) {
         self.extra = extra;
     }
-    fn is_parenthesized(&self) -> bool {
-        self.check_parenthesized(&self.extra)
+    fn get_extra(&self) -> &Option<Extra> {
+        &self.extra
     }
-    fn print_node_inner(&self) -> String {
-        self.name.clone()
+    fn get_loc(&self) -> &Loc {
+        &self.loc
+    }
+    fn print_node_inner(&self, print_context: &mut PrintContext) {
+        print_context.add_text(self.name.as_str())
     }
 }
 
@@ -149,11 +231,14 @@ impl Node for NumericLiteral {
     fn set_parenthesized(&mut self, extra: Option<Extra>) {
         self.extra = extra;
     }
-    fn is_parenthesized(&self) -> bool {
-        self.check_parenthesized(&self.extra)
+    fn get_extra(&self) -> &Option<Extra> {
+        &self.extra
     }
-    fn print_node_inner(&self) -> String {
-        self.value.clone()
+    fn get_loc(&self) -> &Loc {
+        &self.loc
+    }
+    fn print_node_inner(&self, print_context: &mut PrintContext) {
+        print_context.add_start_loc_text(&self.loc.start, self.value.as_str())
     }
 }
 
@@ -190,14 +275,22 @@ impl Node for StringLiteral {
     fn set_parenthesized(&mut self, extra: Option<Extra>) {
         self.extra = extra;
     }
-    fn is_parenthesized(&self) -> bool {
-        self.check_parenthesized(&self.extra)
+    fn get_extra(&self) -> &Option<Extra> {
+        &self.extra
     }
-    fn print_node_inner(&self) -> String {
+    fn get_loc(&self) -> &Loc {
+        &self.loc
+    }
+    fn print_node_inner(&self, print_context: &mut PrintContext) {
         if self.is_single_quoted {
-            return "'".to_string() + &self.value.clone() + "'";
+            print_context.add_start_loc_text(&self.loc.start, "'");
+            print_context.add_text(self.value.as_str());
+            print_context.add_text("'");
+        } else {
+            print_context.add_start_loc_text(&self.loc.start, "\"");
+            print_context.add_text(self.value.as_str());
+            print_context.add_text("\"");
         }
-        "\"".to_string() + &self.value.clone() + "\""
     }
 }
 
@@ -232,14 +325,17 @@ impl Node for BooleanLiteral {
     fn set_parenthesized(&mut self, extra: Option<Extra>) {
         self.extra = extra;
     }
-    fn is_parenthesized(&self) -> bool {
-        self.check_parenthesized(&self.extra)
+    fn get_extra(&self) -> &Option<Extra> {
+        &self.extra
     }
-    fn print_node_inner(&self) -> String {
+    fn get_loc(&self) -> &Loc {
+        &self.loc
+    }
+    fn print_node_inner(&self, print_context: &mut PrintContext) {
         if self.value {
-            "true".to_string()
+            print_context.add_start_loc_text(&self.loc.start, "true");
         } else {
-            "false".to_string()
+            print_context.add_start_loc_text(&self.loc.start, "false");
         }
     }
 }
@@ -273,11 +369,14 @@ impl Node for NullLiteral {
     fn set_parenthesized(&mut self, extra: Option<Extra>) {
         self.extra = extra;
     }
-    fn is_parenthesized(&self) -> bool {
-        self.check_parenthesized(&self.extra)
+    fn get_extra(&self) -> &Option<Extra> {
+        &self.extra
     }
-    fn print_node_inner(&self) -> String {
-        "null".to_string()
+    fn get_loc(&self) -> &Loc {
+        &self.loc
+    }
+    fn print_node_inner(&self, print_context: &mut PrintContext) {
+        print_context.add_start_loc_text(&self.loc.start, "null")
     }
 }
 
@@ -314,11 +413,17 @@ impl Node for RegExpLiteral {
     fn set_parenthesized(&mut self, extra: Option<Extra>) {
         self.extra = extra;
     }
-    fn is_parenthesized(&self) -> bool {
-        self.check_parenthesized(&self.extra)
+    fn get_extra(&self) -> &Option<Extra> {
+        &self.extra
     }
-    fn print_node_inner(&self) -> String {
-        "/".to_string() + &self.pattern.clone() + "/" + &self.flags
+    fn get_loc(&self) -> &Loc {
+        &self.loc
+    }
+    fn print_node_inner(&self, print_context: &mut PrintContext) {
+        print_context.add_start_loc_text(&self.loc.start, "/");
+        print_context.add_text(self.pattern.as_str());
+        print_context.add_text("/");
+        print_context.add_text(self.flags.as_str());
     }
 }
 
@@ -360,11 +465,14 @@ impl Node for TemplateLiteral {
     fn set_parenthesized(&mut self, extra: Option<Extra>) {
         self.extra = extra;
     }
-    fn is_parenthesized(&self) -> bool {
-        self.check_parenthesized(&self.extra)
+    fn get_extra(&self) -> &Option<Extra> {
+        &self.extra
     }
-    fn print_node_inner(&self) -> String {
-        "TemplateLiteral".to_string()
+    fn get_loc(&self) -> &Loc {
+        &self.loc
+    }
+    fn print_node_inner(&self, print_context: &mut PrintContext) {
+        print_context.add_start_loc_text(&self.loc.start, "TemplateLiteral");
     }
 }
 
@@ -399,11 +507,14 @@ impl Node for TemplateElement {
     fn set_parenthesized(&mut self, extra: Option<Extra>) {
         self.extra = extra;
     }
-    fn is_parenthesized(&self) -> bool {
-        self.check_parenthesized(&self.extra)
+    fn get_extra(&self) -> &Option<Extra> {
+        &self.extra
     }
-    fn print_node_inner(&self) -> String {
-        "TemplateElement".to_string()
+    fn get_loc(&self) -> &Loc {
+        &self.loc
+    }
+    fn print_node_inner(&self, print_context: &mut PrintContext) {
+        print_context.add_start_loc_text(&self.loc.start, "TemplateElement");
     }
 }
 
@@ -438,12 +549,18 @@ impl Node for ArrayExpression {
     fn set_parenthesized(&mut self, extra: Option<Extra>) {
         self.extra = extra;
     }
-    fn is_parenthesized(&self) -> bool {
-        self.check_parenthesized(&self.extra)
+    fn get_extra(&self) -> &Option<Extra> {
+        &self.extra
     }
-    fn print_node_inner(&self) -> String {
-        let a: Vec<String> = self.elements.iter().map(|node| node.print_node()).collect();
-        "[".to_string() + &a.join(",") + "]"
+    fn get_loc(&self) -> &Loc {
+        &self.loc
+    }
+    fn print_node_inner(&self, print_context: &mut PrintContext) {
+        print_context.add_start_loc_text(&self.loc.start, "[");
+        for node in &self.elements {
+            node.print_node(print_context)
+        }
+        print_context.add_text("]");
     }
 }
 
@@ -478,16 +595,22 @@ impl Node for ObjectExpression {
     fn set_parenthesized(&mut self, extra: Option<Extra>) {
         self.extra = extra;
     }
-    fn is_parenthesized(&self) -> bool {
-        self.check_parenthesized(&self.extra)
+    fn get_extra(&self) -> &Option<Extra> {
+        &self.extra
     }
-    fn print_node_inner(&self) -> String {
-        let a: Vec<String> = self
-            .properties
-            .iter()
-            .map(|node| node.print_node())
-            .collect();
-        "{".to_string() + &a.join(",") + "}"
+    fn get_loc(&self) -> &Loc {
+        &self.loc
+    }
+    fn print_node_inner(&self, print_context: &mut PrintContext) {
+        print_context.add_start_loc_text(&self.loc.start, "{");
+        for (i, node) in self.properties.iter().enumerate() {
+            node.print_node(print_context);
+            let is_last = i == self.properties.len() - 1;
+            if !is_last {
+                print_context.add_text(",");
+            }
+        }
+        print_context.add_text("}");
     }
 }
 
@@ -519,11 +642,16 @@ impl Node for ObjectProperty {
     fn as_any(&self) -> &dyn Any {
         self
     }
-    fn is_parenthesized(&self) -> bool {
-        false
+    fn get_extra(&self) -> &Option<Extra> {
+        &None
     }
-    fn print_node_inner(&self) -> String {
-        self.key.print_node() + ":" + &self.value.print_node()
+    fn get_loc(&self) -> &Loc {
+        &self.loc
+    }
+    fn print_node_inner(&self, print_context: &mut PrintContext) {
+        self.key.print_node(print_context);
+        print_context.add_text(":");
+        &self.value.print_node(print_context);
     }
 }
 
@@ -563,12 +691,20 @@ impl Node for ObjectMethod {
     fn as_any(&self) -> &dyn Any {
         self
     }
-    fn is_parenthesized(&self) -> bool {
-        false
+    fn get_extra(&self) -> &Option<Extra> {
+        &None
     }
-    fn print_node_inner(&self) -> String {
-        let a: Vec<String> = self.params.iter().map(|node| node.print_node()).collect();
-        self.key.print_node() + "(" + &a.join("") + ")" + &self.body.print_node()
+    fn get_loc(&self) -> &Loc {
+        &self.loc
+    }
+    fn print_node_inner(&self, print_context: &mut PrintContext) {
+        self.key.print_node(print_context);
+        print_context.add_text("(");
+        for node in &self.params {
+            node.print_node(print_context)
+        }
+        print_context.add_text(")");
+        self.body.print_node(print_context)
     }
 }
 
@@ -598,16 +734,22 @@ impl Node for ObjectPattern {
     fn as_any(&self) -> &dyn Any {
         self
     }
-    fn is_parenthesized(&self) -> bool {
-        false
+    fn get_extra(&self) -> &Option<Extra> {
+        &None
     }
-    fn print_node_inner(&self) -> String {
-        let a: Vec<String> = self
-            .properties
-            .iter()
-            .map(|node| node.print_node())
-            .collect();
-        "{".to_string() + &a.join(",") + "}"
+    fn get_loc(&self) -> &Loc {
+        &self.loc
+    }
+    fn print_node_inner(&self, print_context: &mut PrintContext) {
+        print_context.add_start_loc_text(&self.loc.start, "{");
+        for (i, node) in self.properties.iter().enumerate() {
+            node.print_node(print_context);
+            let is_last = i == self.properties.len() - 1;
+            if !is_last {
+                print_context.add_text(",");
+            }
+        }
+        print_context.add_text("}");
     }
 }
 
@@ -637,12 +779,22 @@ impl Node for ArrayPattern {
     fn as_any(&self) -> &dyn Any {
         self
     }
-    fn is_parenthesized(&self) -> bool {
-        false
+    fn get_extra(&self) -> &Option<Extra> {
+        &None
     }
-    fn print_node_inner(&self) -> String {
-        let a: Vec<String> = self.elements.iter().map(|node| node.print_node()).collect();
-        "[".to_string() + &a.join(",") + "]"
+    fn get_loc(&self) -> &Loc {
+        &self.loc
+    }
+    fn print_node_inner(&self, print_context: &mut PrintContext) {
+        print_context.add_start_loc_text(&self.loc.start, "[");
+        for (i, node) in self.elements.iter().enumerate() {
+            node.print_node(print_context);
+            let is_last = i == self.elements.len() - 1;
+            if !is_last {
+                print_context.add_text(",");
+            }
+        }
+        print_context.add_text("]");
     }
 }
 
@@ -677,16 +829,20 @@ impl Node for SequenceExpression {
     fn set_parenthesized(&mut self, extra: Option<Extra>) {
         self.extra = extra;
     }
-    fn is_parenthesized(&self) -> bool {
-        self.check_parenthesized(&self.extra)
+    fn get_extra(&self) -> &Option<Extra> {
+        &self.extra
     }
-    fn print_node_inner(&self) -> String {
-        let a: Vec<String> = self
-            .expressions
-            .iter()
-            .map(|node| node.print_node())
-            .collect();
-        a.join(",")
+    fn get_loc(&self) -> &Loc {
+        &self.loc
+    }
+    fn print_node_inner(&self, print_context: &mut PrintContext) {
+        for (i, node) in self.expressions.iter().enumerate() {
+            node.print_node(print_context);
+            let is_last = i == self.expressions.len() - 1;
+            if !is_last {
+                print_context.add_text(",");
+            }
+        }
     }
 }
 
@@ -723,16 +879,21 @@ impl Node for VariableDeclaration {
     fn as_any(&self) -> &dyn Any {
         self
     }
-    fn is_parenthesized(&self) -> bool {
-        false
+    fn get_extra(&self) -> &Option<Extra> {
+        &None
     }
-    fn print_node_inner(&self) -> String {
-        let a: Vec<String> = self
-            .declarations
-            .iter()
-            .map(|node| node.print_node())
-            .collect();
-        self.kind.to_string() + " " + &a.join(",")
+    fn get_loc(&self) -> &Loc {
+        &self.loc
+    }
+    fn print_node_inner(&self, print_context: &mut PrintContext) {
+        print_context.add_text(&self.kind.to_string());
+        for (i, node) in self.declarations.iter().enumerate() {
+            node.print_node(print_context);
+            let is_last = i == self.declarations.len() - 1;
+            if !is_last {
+                print_context.add_text(",");
+            }
+        }
     }
 }
 
@@ -769,14 +930,19 @@ impl Node for VariableDeclarator {
     fn as_any(&self) -> &dyn Any {
         self
     }
-    fn is_parenthesized(&self) -> bool {
-        false
+    fn get_extra(&self) -> &Option<Extra> {
+        &None
     }
-    fn print_node_inner(&self) -> String {
+    fn get_loc(&self) -> &Loc {
+        &self.loc
+    }
+    fn print_node_inner(&self, print_context: &mut PrintContext) {
         if let Some(init) = &self.init {
-            self.id.print_node() + " = " + &init.print_node()
+            self.id.print_node(print_context);
+            print_context.add_text("=");
+            init.print_node(print_context);
         } else {
-            self.id.print_node()
+            self.id.print_node(print_context)
         }
     }
 }
@@ -822,13 +988,16 @@ impl Node for AssignmentExpression {
     fn set_parenthesized(&mut self, extra: Option<Extra>) {
         self.extra = extra;
     }
-    fn is_parenthesized(&self) -> bool {
-        self.check_parenthesized(&self.extra)
+    fn get_extra(&self) -> &Option<Extra> {
+        &self.extra
     }
-    fn print_node_inner(&self) -> String {
-        let a = self.left.print_node();
-        let b = self.right.print_node();
-        format!("/*{}*/{}{}{}", self.loc.start.line, a, self.operator, b)
+    fn get_loc(&self) -> &Loc {
+        &self.loc
+    }
+    fn print_node_inner(&self, print_context: &mut PrintContext) {
+        self.left.print_node(print_context);
+        print_context.add_text(&self.operator);
+        self.right.print_node(print_context);
     }
 }
 
@@ -873,11 +1042,16 @@ impl Node for BinaryExpression {
     fn set_parenthesized(&mut self, extra: Option<Extra>) {
         self.extra = extra;
     }
-    fn is_parenthesized(&self) -> bool {
-        self.check_parenthesized(&self.extra)
+    fn get_extra(&self) -> &Option<Extra> {
+        &self.extra
     }
-    fn print_node_inner(&self) -> String {
-        self.left.print_node() + " " + &self.operator + " " + &self.right.print_node()
+    fn get_loc(&self) -> &Loc {
+        &self.loc
+    }
+    fn print_node_inner(&self, print_context: &mut PrintContext) {
+        self.left.print_node(print_context);
+        print_context.add_text(&self.operator);
+        self.right.print_node(print_context);
     }
 }
 
@@ -922,11 +1096,16 @@ impl Node for LogicalExpression {
     fn set_parenthesized(&mut self, extra: Option<Extra>) {
         self.extra = extra;
     }
-    fn is_parenthesized(&self) -> bool {
-        self.check_parenthesized(&self.extra)
+    fn get_extra(&self) -> &Option<Extra> {
+        &self.extra
     }
-    fn print_node_inner(&self) -> String {
-        self.left.print_node() + " " + &self.operator + " " + &self.right.print_node()
+    fn get_loc(&self) -> &Loc {
+        &self.loc
+    }
+    fn print_node_inner(&self, print_context: &mut PrintContext) {
+        self.left.print_node(print_context);
+        print_context.add_text(&self.operator);
+        self.right.print_node(print_context)
     }
 }
 
@@ -971,14 +1150,18 @@ impl Node for UnaryExpression {
     fn set_parenthesized(&mut self, extra: Option<Extra>) {
         self.extra = extra;
     }
-    fn is_parenthesized(&self) -> bool {
-        self.check_parenthesized(&self.extra)
+    fn get_extra(&self) -> &Option<Extra> {
+        &self.extra
     }
-    fn print_node_inner(&self) -> String {
+    fn get_loc(&self) -> &Loc {
+        &self.loc
+    }
+    fn print_node_inner(&self, print_context: &mut PrintContext) {
         if self.prefix {
-            return self.operator.clone() + " " + &self.argument.print_node();
+            print_context.add_start_loc_text(&self.loc.start, &self.operator);
+            self.argument.print_node(print_context);
         }
-        "UnaryExpression prefix=false".to_string()
+        print_context.add_text("UnaryExpression prefix=false");
     }
 }
 
@@ -1023,14 +1206,19 @@ impl Node for UpdateExpression {
     fn set_parenthesized(&mut self, extra: Option<Extra>) {
         self.extra = extra;
     }
-    fn is_parenthesized(&self) -> bool {
-        self.check_parenthesized(&self.extra)
+    fn get_extra(&self) -> &Option<Extra> {
+        &self.extra
     }
-    fn print_node_inner(&self) -> String {
+    fn get_loc(&self) -> &Loc {
+        &self.loc
+    }
+    fn print_node_inner(&self, print_context: &mut PrintContext) {
         if self.prefix {
-            return self.operator.clone() + &self.argument.print_node();
+            print_context.add_start_loc_text(&self.loc.start, &self.operator.clone());
+            self.argument.print_node(print_context);
         }
-        self.argument.print_node() + &self.operator.to_string()
+        self.argument.print_node(print_context);
+        print_context.add_end_loc_text(&self.loc.start, &self.operator.clone());
     }
 }
 
@@ -1075,14 +1263,20 @@ impl Node for MemberExpression {
     fn set_parenthesized(&mut self, extra: Option<Extra>) {
         self.extra = extra;
     }
-    fn is_parenthesized(&self) -> bool {
-        self.check_parenthesized(&self.extra)
+    fn get_extra(&self) -> &Option<Extra> {
+        &self.extra
     }
-    fn print_node_inner(&self) -> String {
+    fn get_loc(&self) -> &Loc {
+        &self.loc
+    }
+    fn print_node_inner(&self, print_context: &mut PrintContext) {
         if self.computed {
-            return self.object.print_node() + "[" + &self.property.print_node() + "]";
+            return self.object.print_node(print_context)
+                + "["
+                + &self.property.print_node(print_context)
+                + "]";
         }
-        self.object.print_node() + "." + &self.property.print_node()
+        self.object.print_node(print_context) + "." + &self.property.print_node(print_context)
     }
 }
 
@@ -1127,15 +1321,18 @@ impl Node for ConditionalExpression {
     fn set_parenthesized(&mut self, extra: Option<Extra>) {
         self.extra = extra;
     }
-    fn is_parenthesized(&self) -> bool {
-        self.check_parenthesized(&self.extra)
+    fn get_extra(&self) -> &Option<Extra> {
+        &self.extra
     }
-    fn print_node_inner(&self) -> String {
-        self.test.print_node()
+    fn get_loc(&self) -> &Loc {
+        &self.loc
+    }
+    fn print_node_inner(&self, print_context: &mut PrintContext) {
+        self.test.print_node(print_context)
             + "?"
-            + &self.consequent.print_node()
+            + &self.consequent.print_node(print_context)
             + ":"
-            + &self.alternate.print_node()
+            + &self.alternate.print_node(print_context)
     }
 }
 
@@ -1177,16 +1374,21 @@ impl Node for CallExpression {
     fn set_parenthesized(&mut self, extra: Option<Extra>) {
         self.extra = extra;
     }
-    fn is_parenthesized(&self) -> bool {
-        self.check_parenthesized(&self.extra)
+    fn get_extra(&self) -> &Option<Extra> {
+        &self.extra
     }
-    fn print_node_inner(&self) -> String {
-        let a: Vec<String> = self
-            .arguments
-            .iter()
-            .map(|node| node.print_node())
-            .collect();
-        self.callee.print_node() + "(" + &a.join(",") + ")"
+    fn get_loc(&self) -> &Loc {
+        &self.loc
+    }
+    fn print_node_inner(&self, print_context: &mut PrintContext) {
+        for (i, node) in self.arguments.iter().enumerate() {
+            node.print_node(print_context);
+            let is_last = i == self.arguments.len() - 1;
+            if !is_last {
+                print_context.add_text(",");
+            }
+        }
+        self.callee.print_node(print_context) + "(" + ")"
     }
 }
 
@@ -1228,24 +1430,29 @@ impl Node for NewExpression {
     fn set_parenthesized(&mut self, extra: Option<Extra>) {
         self.extra = extra;
     }
-    fn is_parenthesized(&self) -> bool {
-        self.check_parenthesized(&self.extra)
+    fn get_extra(&self) -> &Option<Extra> {
+        &self.extra
     }
-    fn print_node_inner(&self) -> String {
-        let a: Vec<String> = self
-            .arguments
-            .iter()
-            .map(|node| node.print_node())
-            .collect();
-        "new ".to_string() + &self.callee.print_node() + "(" + &a.join(",") + ")"
+    fn get_loc(&self) -> &Loc {
+        &self.loc
+    }
+    fn print_node_inner(&self, print_context: &mut PrintContext) {
+        for (i, node) in self.arguments.iter().enumerate() {
+            node.print_node(print_context);
+            let is_last = i == self.arguments.len() - 1;
+            if !is_last {
+                print_context.add_text(",");
+            }
+        }
+        "new ".to_string() + &self.callee.print_node(print_context) + "(" + &a.join(",") + ")"
     }
 }
 
 #[derive(Clone, Debug)]
 pub struct ForStatement {
-    pub init: Box<dyn Node>,
-    pub test: Box<dyn Node>,
-    pub update: Box<dyn Node>,
+    pub init: Option<Box<dyn Node>>,
+    pub test: Option<Box<dyn Node>>,
+    pub update: Option<Box<dyn Node>>,
     pub body: Box<dyn Node>,
     pub start: usize,
     pub end: usize,
@@ -1254,9 +1461,9 @@ pub struct ForStatement {
 
 impl ForStatement {
     pub fn new(
-        init: Box<dyn Node>,
-        test: Box<dyn Node>,
-        update: Box<dyn Node>,
+        init: Option<Box<dyn Node>>,
+        test: Option<Box<dyn Node>>,
+        update: Option<Box<dyn Node>>,
         body: Box<dyn Node>,
         start_loc: Loc,
         end_loc: Loc,
@@ -1280,19 +1487,37 @@ impl Node for ForStatement {
     fn as_any(&self) -> &dyn Any {
         self
     }
-    fn is_parenthesized(&self) -> bool {
-        false
+    fn get_extra(&self) -> &Option<Extra> {
+        &None
     }
-    fn print_node_inner(&self) -> String {
+    fn get_loc(&self) -> &Loc {
+        &self.loc
+    }
+    fn print_node_inner(&self, print_context: &mut PrintContext) {
+        let init_str = if let Some(init) = &self.init {
+            &init.print_node(print_context)
+        } else {
+            ""
+        };
+        let test_str = if let Some(test) = &self.test {
+            &test.print_node(print_context)
+        } else {
+            ""
+        };
+        let update_str = if let Some(update) = &self.update {
+            &update.print_node(print_context)
+        } else {
+            ""
+        };
         "for".to_string()
             + "("
-            + &self.init.print_node()
+            + init_str
             + ";"
-            + &self.test.print_node()
+            + test_str
             + ";"
-            + &self.update.print_node()
+            + update_str
             + ")"
-            + &self.body.print_node()
+            + &self.body.print_node(print_context)
     }
 }
 
@@ -1332,17 +1557,20 @@ impl Node for ForInStatement {
     fn as_any(&self) -> &dyn Any {
         self
     }
-    fn is_parenthesized(&self) -> bool {
-        false
+    fn get_extra(&self) -> &Option<Extra> {
+        &None
     }
-    fn print_node_inner(&self) -> String {
+    fn get_loc(&self) -> &Loc {
+        &self.loc
+    }
+    fn print_node_inner(&self, print_context: &mut PrintContext) {
         "for".to_string()
             + "("
-            + &self.left.print_node()
+            + &self.left.print_node(print_context)
             + " in "
-            + &self.right.print_node()
+            + &self.right.print_node(print_context)
             + ")"
-            + &self.body.print_node()
+            + &self.body.print_node(print_context)
     }
 }
 
@@ -1374,11 +1602,17 @@ impl Node for WhileStatement {
     fn as_any(&self) -> &dyn Any {
         self
     }
-    fn is_parenthesized(&self) -> bool {
-        false
+    fn get_extra(&self) -> &Option<Extra> {
+        &None
     }
-    fn print_node_inner(&self) -> String {
-        "while(".to_string() + &self.test.print_node() + ")" + &self.body.print_node()
+    fn get_loc(&self) -> &Loc {
+        &self.loc
+    }
+    fn print_node_inner(&self, print_context: &mut PrintContext) {
+        "while(".to_string()
+            + &self.test.print_node(print_context)
+            + ")"
+            + &self.body.print_node(print_context)
     }
 }
 
@@ -1410,11 +1644,18 @@ impl Node for DoWhileStatement {
     fn as_any(&self) -> &dyn Any {
         self
     }
-    fn is_parenthesized(&self) -> bool {
-        false
+    fn get_extra(&self) -> &Option<Extra> {
+        &None
     }
-    fn print_node_inner(&self) -> String {
-        "do{".to_string() + &self.body.print_node() + "}while(" + &self.test.print_node() + ")"
+    fn get_loc(&self) -> &Loc {
+        &self.loc
+    }
+    fn print_node_inner(&self, print_context: &mut PrintContext) {
+        "do{".to_string()
+            + &self.body.print_node(print_context)
+            + "}while("
+            + &self.test.print_node(print_context)
+            + ")"
     }
 }
 
@@ -1454,17 +1695,25 @@ impl Node for FunctionDeclaration {
     fn as_any(&self) -> &dyn Any {
         self
     }
-    fn is_parenthesized(&self) -> bool {
-        false
+    fn get_extra(&self) -> &Option<Extra> {
+        &None
     }
-    fn print_node_inner(&self) -> String {
-        let a: Vec<String> = self.params.iter().map(|node| node.print_node()).collect();
+    fn get_loc(&self) -> &Loc {
+        &self.loc
+    }
+    fn print_node_inner(&self, print_context: &mut PrintContext) {
+        for (i, node) in self.params.iter().enumerate() {
+            node.print_node(print_context);
+            let is_last = i == self.params.len() - 1;
+            if !is_last {
+                print_context.add_text(",");
+            }
+        }
         "function ".to_string()
-            + &self.id.print_node()
+            + &self.id.print_node(print_context)
             + "("
-            + &a.join(", ")
             + ")"
-            + &self.body.print_node()
+            + &self.body.print_node(print_context)
     }
 }
 
@@ -1509,17 +1758,25 @@ impl Node for FunctionExpression {
     fn set_parenthesized(&mut self, extra: Option<Extra>) {
         self.extra = extra;
     }
-    fn is_parenthesized(&self) -> bool {
-        self.check_parenthesized(&self.extra)
+    fn get_extra(&self) -> &Option<Extra> {
+        &self.extra
     }
-    fn print_node_inner(&self) -> String {
-        let a: Vec<String> = self.params.iter().map(|node| node.print_node()).collect();
+    fn get_loc(&self) -> &Loc {
+        &self.loc
+    }
+    fn print_node_inner(&self, print_context: &mut PrintContext) {
+        for (i, node) in self.params.iter().enumerate() {
+            node.print_node(print_context);
+            let is_last = i == self.params.len() - 1;
+            if !is_last {
+                print_context.add_text(",");
+            }
+        }
         "/*".to_string()
             + &self.loc.start.line.to_string()
             + "*/function("
-            + &a.join(", ")
             + ")"
-            + &self.body.print_node()
+            + &self.body.print_node(print_context)
     }
 }
 
@@ -1561,12 +1818,21 @@ impl Node for ArrowFunctionExpression {
     fn set_parenthesized(&mut self, extra: Option<Extra>) {
         self.extra = extra;
     }
-    fn is_parenthesized(&self) -> bool {
-        self.check_parenthesized(&self.extra)
+    fn get_extra(&self) -> &Option<Extra> {
+        &self.extra
     }
-    fn print_node_inner(&self) -> String {
-        let a: Vec<String> = self.params.iter().map(|node| node.print_node()).collect();
-        "(".to_string() + &a.join(", ") + ")=>" + &self.body.print_node()
+    fn get_loc(&self) -> &Loc {
+        &self.loc
+    }
+    fn print_node_inner(&self, print_context: &mut PrintContext) {
+        for (i, node) in self.params.iter().enumerate() {
+            node.print_node(print_context);
+            let is_last = i == self.params.len() - 1;
+            if !is_last {
+                print_context.add_text(",");
+            }
+        }
+        "(".to_string() + ")=>" + &self.body.print_node(print_context)
     }
 }
 
@@ -1599,10 +1865,13 @@ impl Node for ThisExpression {
     fn set_parenthesized(&mut self, extra: Option<Extra>) {
         self.extra = extra;
     }
-    fn is_parenthesized(&self) -> bool {
-        self.check_parenthesized(&self.extra)
+    fn get_extra(&self) -> &Option<Extra> {
+        &self.extra
     }
-    fn print_node_inner(&self) -> String {
+    fn get_loc(&self) -> &Loc {
+        &self.loc
+    }
+    fn print_node_inner(&self, print_context: &mut PrintContext) {
         "this".to_string()
     }
 }
@@ -1635,11 +1904,14 @@ impl Node for AssignmentPattern {
     fn as_any(&self) -> &dyn Any {
         self
     }
-    fn is_parenthesized(&self) -> bool {
-        false
+    fn get_extra(&self) -> &Option<Extra> {
+        &None
     }
-    fn print_node_inner(&self) -> String {
-        self.left.print_node() + "=" + &self.right.print_node()
+    fn get_loc(&self) -> &Loc {
+        &self.loc
+    }
+    fn print_node_inner(&self, print_context: &mut PrintContext) {
+        self.left.print_node(print_context) + "=" + &self.right.print_node(print_context)
     }
 }
 
@@ -1669,13 +1941,17 @@ impl Node for BlockStatement {
     fn as_any(&self) -> &dyn Any {
         self
     }
-    fn is_parenthesized(&self) -> bool {
-        false
+    fn get_extra(&self) -> &Option<Extra> {
+        &None
     }
-    fn print_node_inner(&self) -> String {
-        let a: Vec<String> = self.body.iter().map(|node| node.print_node()).collect();
-
-        "{".to_string() + &a.join("\n") + "}"
+    fn get_loc(&self) -> &Loc {
+        &self.loc
+    }
+    fn print_node_inner(&self, print_context: &mut PrintContext) {
+        for node in &self.body {
+            node.print_node(print_context)
+        }
+        "{".to_string() + &a.join("\n") + &context.padding(&self.loc.end) + "}"
     }
 }
 
@@ -1715,19 +1991,25 @@ impl Node for IfStatement {
     fn as_any(&self) -> &dyn Any {
         self
     }
-    fn is_parenthesized(&self) -> bool {
-        false
+    fn get_extra(&self) -> &Option<Extra> {
+        &None
     }
-    fn print_node_inner(&self) -> String {
+    fn get_loc(&self) -> &Loc {
+        &self.loc
+    }
+    fn print_node_inner(&self, print_context: &mut PrintContext) {
         if let Some(alternate) = &self.alternate {
             return "if(".to_string()
-                + &self.test.print_node()
+                + &self.test.print_node(print_context)
                 + ")"
-                + &self.consequent.print_node()
+                + &self.consequent.print_node(print_context)
                 + "\nelse "
-                + &alternate.print_node();
+                + &alternate.print_node(print_context);
         }
-        "if(".to_string() + &self.test.print_node() + ")" + &self.consequent.print_node()
+        "if(".to_string()
+            + &self.test.print_node(print_context)
+            + ")"
+            + &self.consequent.print_node(print_context)
     }
 }
 
@@ -1767,18 +2049,21 @@ impl Node for TryStatement {
     fn as_any(&self) -> &dyn Any {
         self
     }
-    fn is_parenthesized(&self) -> bool {
-        false
+    fn get_extra(&self) -> &Option<Extra> {
+        &None
     }
-    fn print_node_inner(&self) -> String {
-        let text = "try".to_string() + &self.block.print_node();
+    fn get_loc(&self) -> &Loc {
+        &self.loc
+    }
+    fn print_node_inner(&self, print_context: &mut PrintContext) {
+        let text = "try".to_string() + &self.block.print_node(print_context);
         let mut catch_text = "".to_string();
         let mut finally_text = "".to_string();
         if let Some(handle) = &self.handle {
-            catch_text = handle.print_node()
+            catch_text = handle.print_node(print_context)
         }
         if let Some(finalizer) = &self.finalizer {
-            finally_text = "finally ".to_string() + &finalizer.print_node();
+            finally_text = "finally ".to_string() + &finalizer.print_node(print_context);
         }
         text + &catch_text + &finally_text
     }
@@ -1817,14 +2102,20 @@ impl Node for CatchClause {
     fn as_any(&self) -> &dyn Any {
         self
     }
-    fn is_parenthesized(&self) -> bool {
-        false
+    fn get_extra(&self) -> &Option<Extra> {
+        &None
     }
-    fn print_node_inner(&self) -> String {
+    fn get_loc(&self) -> &Loc {
+        &self.loc
+    }
+    fn print_node_inner(&self, print_context: &mut PrintContext) {
         if let Some(param) = &self.param {
-            return "catch(".to_string() + &param.print_node() + ")" + &self.body.print_node();
+            return "catch(".to_string()
+                + &param.print_node(print_context)
+                + ")"
+                + &self.body.print_node(print_context);
         }
-        "catch()".to_string() + &self.body.print_node()
+        "catch()".to_string() + &self.body.print_node(print_context)
     }
 }
 
@@ -1854,12 +2145,15 @@ impl Node for ReturnStatement {
     fn as_any(&self) -> &dyn Any {
         self
     }
-    fn is_parenthesized(&self) -> bool {
-        false
+    fn get_extra(&self) -> &Option<Extra> {
+        &None
     }
-    fn print_node_inner(&self) -> String {
+    fn get_loc(&self) -> &Loc {
+        &self.loc
+    }
+    fn print_node_inner(&self, print_context: &mut PrintContext) {
         if let Some(argument) = &self.argument {
-            return "return ".to_string() + &argument.print_node();
+            return "return ".to_string() + &argument.print_node(print_context);
         }
         "return".to_string()
     }
@@ -1898,12 +2192,21 @@ impl Node for SwitchStatement {
     fn as_any(&self) -> &dyn Any {
         self
     }
-    fn is_parenthesized(&self) -> bool {
-        false
+    fn get_extra(&self) -> &Option<Extra> {
+        &None
     }
-    fn print_node_inner(&self) -> String {
-        let a: Vec<String> = self.cases.iter().map(|node| node.print_node()).collect();
-        "switch(".to_string() + &self.discriminant.print_node() + "){" + &a.join("\n") + "}"
+    fn get_loc(&self) -> &Loc {
+        &self.loc
+    }
+    fn print_node_inner(&self, print_context: &mut PrintContext) {
+        for node in &self.cases {
+            node.print_node(print_context)
+        }
+        "switch(".to_string()
+            + &self.discriminant.print_node(print_context)
+            + "){"
+            + &a.join("\n")
+            + "}"
     }
 }
 
@@ -1940,17 +2243,18 @@ impl Node for SwitchCase {
     fn as_any(&self) -> &dyn Any {
         self
     }
-    fn is_parenthesized(&self) -> bool {
-        false
+    fn get_extra(&self) -> &Option<Extra> {
+        &None
     }
-    fn print_node_inner(&self) -> String {
-        let a: Vec<String> = self
-            .consequent
-            .iter()
-            .map(|node| node.print_node())
-            .collect();
+    fn get_loc(&self) -> &Loc {
+        &self.loc
+    }
+    fn print_node_inner(&self, print_context: &mut PrintContext) {
+        for node in &self.consequent {
+            node.print_node(print_context)
+        }
         if let Some(test) = &self.test {
-            return "case ".to_string() + &test.print_node() + ":\n" + &a.join("\n");
+            return "case ".to_string() + &test.print_node(print_context) + ":\n" + &a.join("\n");
         }
         "default:\n".to_string() + &a.join("\n")
     }
@@ -1984,10 +2288,13 @@ impl Node for LabeledStatement {
     fn as_any(&self) -> &dyn Any {
         self
     }
-    fn is_parenthesized(&self) -> bool {
-        false
+    fn get_extra(&self) -> &Option<Extra> {
+        &None
     }
-    fn print_node_inner(&self) -> String {
+    fn get_loc(&self) -> &Loc {
+        &self.loc
+    }
+    fn print_node_inner(&self, print_context: &mut PrintContext) {
         "unsupported LabeledStatement".to_string()
     }
 }
@@ -2018,12 +2325,15 @@ impl Node for BreakStatement {
     fn as_any(&self) -> &dyn Any {
         self
     }
-    fn is_parenthesized(&self) -> bool {
-        false
+    fn get_extra(&self) -> &Option<Extra> {
+        &None
     }
-    fn print_node_inner(&self) -> String {
+    fn get_loc(&self) -> &Loc {
+        &self.loc
+    }
+    fn print_node_inner(&self, print_context: &mut PrintContext) {
         if let Some(label) = &self.label {
-            return "break ".to_string() + &label.print_node();
+            return "break ".to_string() + &label.print_node(print_context);
         }
         "break".to_string()
     }
@@ -2055,12 +2365,15 @@ impl Node for ContinueStatement {
     fn as_any(&self) -> &dyn Any {
         self
     }
-    fn is_parenthesized(&self) -> bool {
-        false
+    fn get_extra(&self) -> &Option<Extra> {
+        &None
     }
-    fn print_node_inner(&self) -> String {
+    fn get_loc(&self) -> &Loc {
+        &self.loc
+    }
+    fn print_node_inner(&self, print_context: &mut PrintContext) {
         if let Some(label) = &self.label {
-            return "continue ".to_string() + &label.print_node();
+            return "continue ".to_string() + &label.print_node(print_context);
         }
         "continue".to_string()
     }
@@ -2092,10 +2405,13 @@ impl Node for ThrowStatement {
     fn as_any(&self) -> &dyn Any {
         self
     }
-    fn is_parenthesized(&self) -> bool {
-        false
+    fn get_extra(&self) -> &Option<Extra> {
+        &None
     }
-    fn print_node_inner(&self) -> String {
-        "throw ".to_string() + &self.argument.print_node()
+    fn get_loc(&self) -> &Loc {
+        &self.loc
+    }
+    fn print_node_inner(&self, print_context: &mut PrintContext) {
+        "throw ".to_string() + &self.argument.print_node(print_context)
     }
 }

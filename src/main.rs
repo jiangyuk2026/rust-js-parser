@@ -1,5 +1,6 @@
 #![allow(warnings)]
 
+use crate::node::PrintContext;
 use crate::parser::Parser;
 use std::fs;
 use std::fs::File;
@@ -17,9 +18,9 @@ mod token;
 fn main() -> Result<(), String> {
     for path in vec![
         "b.js",
-        "jquery.js",
-        "react.development.js",
-        "cloudflare.js"
+        // "jquery.js",
+        // "react.development.js",
+        // "cloudflare.js"
     ] {
         let start = Instant::now();
         let mut str = String::new();
@@ -31,10 +32,12 @@ fn main() -> Result<(), String> {
             .expect("Failed to read file");
         // println!("{:#?}", str);
 
+        str = str.replace("\r\n", "\n");
+
         let mut parser = Parser::new(str)?;
         let ast = parser.parse();
 
-        // println!("{:#?}", ast);
+        println!("{:#?}", ast);
         if ast.is_err() {
             println!("{:#?}", parser.loc);
             println!("{:#?}", ast);
@@ -43,12 +46,12 @@ fn main() -> Result<(), String> {
         if ast.is_ok() {
             println!("耗时: {:.2?}", duration);
             let out_path = format!("{}/{}/{}", env!("CARGO_MANIFEST_DIR"), "out", path);
-            let mut result_txt = "".to_string();
+            let print_context = &mut PrintContext::new();
             for node in ast?.iter() {
-                result_txt += &node.print_node();
+               node.print_node(print_context);
             }
             // println!("{:?}", result_txt);
-            fs::write(out_path, result_txt).expect("Failed to write to file");
+            fs::write(out_path, &print_context.output).expect("Failed to write to file");
             println!();
         }
     }
