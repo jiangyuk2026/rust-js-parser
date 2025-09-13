@@ -1,18 +1,30 @@
 use crate::lex::Token::Comment;
 use crate::token::Token;
-use std::fmt::Display;
+use std::fmt::{Debug, Display, Formatter};
 
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub struct Position {
     pub line: usize,
     pub column: usize,
     pub index: usize,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub struct Loc {
     pub start: Position,
     pub end: Position,
+}
+
+impl Debug for Position {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{},{}", self.line, self.column)
+    }
+}
+
+impl Debug for Loc {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{:#?}  {:#?}", self.start, self.end)
+    }
 }
 
 impl Loc {
@@ -222,13 +234,13 @@ impl Lex {
                     if escaped {
                         escaped = false;
                         if c == 'r' {
-                            word.push_str("\\r");
+                            word.push_str("r");
                         }
                         if c == 'n' {
-                            word.push_str("\\n");
+                            word.push_str("n");
                         }
                         if c == 't' {
-                            word.push_str("\\t");
+                            word.push_str("t");
                         }
                     } else {
                         word.push(c);
@@ -355,6 +367,8 @@ impl Lex {
                                     return Err("repeated regex flags".to_string());
                                 }
                                 flags.push(d);
+                            } else {
+                                word.push(d);
                             }
                         }
                         _ => {

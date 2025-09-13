@@ -23,34 +23,35 @@ pub fn build_object(parser: &mut Parser) -> Result<Box<dyn Node>, String> {
         }
         let key: Box<dyn Node>;
 
+        let key_start_loc = parser.loc.clone();
         if is_keyword(&parser.current) {
             key = Box::new(Identity::new(
                 parser.current.to_string(),
-                start_loc.clone(),
-                parser.last_loc.clone(),
+                parser.loc.clone(),
+                parser.loc.clone(),
             ))
         } else {
             match &*parser.current {
                 Token::Variable(s) => {
                     key = Box::new(Identity::new(
                         s.to_string(),
-                        start_loc.clone(),
-                        parser.last_loc.clone(),
+                        parser.loc.clone(),
+                        parser.loc.clone(),
                     ));
                 }
                 Token::String(s, is_single_quoted) => {
                     key = Box::new(StringLiteral::new(
                         s.to_string(),
                         *is_single_quoted,
-                        start_loc.clone(),
-                        parser.last_loc.clone(),
+                        parser.loc.clone(),
+                        parser.loc.clone(),
                     ));
                 }
                 Token::Digit(s) => {
                     key = Box::new(NumericLiteral::new(
                         s.to_string(),
-                        start_loc.clone(),
-                        parser.last_loc.clone(),
+                        parser.loc.clone(),
+                        parser.loc.clone(),
                     ));
                 }
                 _ => {
@@ -63,8 +64,8 @@ pub fn build_object(parser: &mut Parser) -> Result<Box<dyn Node>, String> {
             properties.push(Box::new(ObjectProperty::new(
                 key.clone(),
                 key,
-                start_loc.clone(),
-                parser.last_loc.clone(),
+                key_start_loc.clone(),
+                key_start_loc.clone(),
             )));
         } else if is_ctrl_word(&parser.current, "(") {
             let params = handle_function_params(parser)?;
@@ -73,7 +74,7 @@ pub fn build_object(parser: &mut Parser) -> Result<Box<dyn Node>, String> {
                 key,
                 params,
                 body,
-                start_loc.clone(),
+                key_start_loc.clone(),
                 parser.last_loc.clone(),
             )))
         } else if is_ctrl_word(&parser.current, ":") {
@@ -82,7 +83,7 @@ pub fn build_object(parser: &mut Parser) -> Result<Box<dyn Node>, String> {
             properties.push(Box::new(ObjectProperty::new(
                 key,
                 parse_expression(parser, 2)?,
-                start_loc.clone(),
+                key_start_loc.clone(),
                 parser.last_loc.clone(),
             )));
         }

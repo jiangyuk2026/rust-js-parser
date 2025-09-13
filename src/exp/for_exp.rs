@@ -17,19 +17,19 @@ pub fn build_for(parser: &mut Parser) -> Result<Box<dyn Node>, String> {
     expect(parser, "(")?;
 
     parser.in_for_init = true;
-    parser.is_for_in = IsForIn::Maybe;
+    parser.is_for_in_expression = IsForIn::Maybe;
     if *parser.current == Token::Let
         || *parser.current == Token::Var
         || *parser.current == Token::Const
     {
         init = Some(build_let(parser)?);
         if *parser.current == Token::In {
-            parser.is_for_in = IsForIn::Must;
+            parser.is_for_in_expression = IsForIn::Must;
             is_single_variable_without_value(&*init.clone().unwrap())?;
             parser.regex_allowed = true;
             parser.next()?;
         } else {
-            parser.is_for_in = IsForIn::Impossible;
+            parser.is_for_in_expression = IsForIn::Impossible;
         }
     } else if let Token::Variable(_) = &*parser.current {
         init = Some(parse_expression(parser, 0)?);
@@ -39,12 +39,12 @@ pub fn build_for(parser: &mut Parser) -> Result<Box<dyn Node>, String> {
             }
             parser.regex_allowed = true;
             parser.next()?;
-            parser.is_for_in = IsForIn::Must;
+            parser.is_for_in_expression = IsForIn::Must;
         } else {
-            parser.is_for_in = IsForIn::Impossible;
+            parser.is_for_in_expression = IsForIn::Impossible;
         }
     } else {
-        parser.is_for_in = IsForIn::Impossible;
+        parser.is_for_in_expression = IsForIn::Impossible;
         if is_ctrl_word(&parser.current, ";") {
             init = None;
         } else {
@@ -53,7 +53,7 @@ pub fn build_for(parser: &mut Parser) -> Result<Box<dyn Node>, String> {
     }
     parser.in_for_init = false;
 
-    if parser.is_for_in == IsForIn::Must {
+    if parser.is_for_in_expression == IsForIn::Must {
         let right = parse_expression(parser, 0)?;
         parser.regex_allowed = true;
         expect(parser, ")")?;

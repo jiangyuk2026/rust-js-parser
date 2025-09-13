@@ -30,11 +30,7 @@ impl PrintContext {
         self.index += text.len();
     }
     pub fn add_start_loc_text(&mut self, pos: &Position, text: &str) {
-        self.padding(&Position {
-            line: pos.line,
-            column: pos.column,
-            index: pos.index - 1,
-        });
+        self.padding(pos);
         self.add_text(text);
     }
     pub fn add_end_loc_text(&mut self, pos: &Position, text: &str) {
@@ -46,23 +42,27 @@ impl PrintContext {
         self.add_text(text);
     }
     pub fn padding(&mut self, pos: &Position) {
-        let mut result = "".to_string();
         if self.line > pos.line {
             panic!("loc line error, {:#?}", pos)
         }
+        if self.line < pos.line {
+            self.column = 1;
+        }
         while self.line < pos.line {
+            self.output.push_str("\n");
             self.line += 1;
-            result += "\n";
+            self.index += 1;
         }
         if self.index > pos.index {
             panic!("loc index error, {:#?}", pos)
         }
-        while pos.index > 0 && self.index < pos.index - 1 {
-            println!("{}, {}", self.index, pos.index);
+        while self.index < pos.index {
+            if self.column < pos.column {
+                self.output.push_str(" ");
+                self.column += 1;
+            }
             self.index += 1;
-            result += " ";
         }
-        self.output.push_str(&result);
     }
 }
 
@@ -106,8 +106,6 @@ pub trait Node: NodeClone + Debug {
                 index: loc.start.index - 1,
             });
             print_context.add_text("(");
-        } else {
-            print_context.padding(&loc.start);
         }
         self.print_node_inner(print_context);
         if self.check_parenthesized(extra) {
@@ -196,7 +194,7 @@ impl Node for Identity {
         &self.loc
     }
     fn print_node_inner(&self, print_context: &mut PrintContext) {
-        print_context.add_text(self.name.as_str())
+        print_context.add_start_loc_text(&self.loc.start, self.name.as_str())
     }
 }
 
@@ -557,8 +555,11 @@ impl Node for ArrayExpression {
     }
     fn print_node_inner(&self, print_context: &mut PrintContext) {
         print_context.add_start_loc_text(&self.loc.start, "[");
-        for node in &self.elements {
-            node.print_node(print_context)
+        for (i, node) in self.elements.iter().enumerate() {
+            node.print_node(print_context);
+            if i != self.elements.len() - 1 {
+                print_context.add_text(",");
+            }
         }
         print_context.add_text("]");
     }
@@ -610,7 +611,7 @@ impl Node for ObjectExpression {
                 print_context.add_text(",");
             }
         }
-        print_context.add_text("}");
+        print_context.add_end_loc_text(&self.loc.end, "}");
     }
 }
 
@@ -886,7 +887,7 @@ impl Node for VariableDeclaration {
         &self.loc
     }
     fn print_node_inner(&self, print_context: &mut PrintContext) {
-        print_context.add_text(&self.kind.to_string());
+        print_context.add_start_loc_text(&self.loc.start, &self.kind.to_string());
         for (i, node) in self.declarations.iter().enumerate() {
             node.print_node(print_context);
             let is_last = i == self.declarations.len() - 1;
@@ -1050,6 +1051,7 @@ impl Node for BinaryExpression {
     }
     fn print_node_inner(&self, print_context: &mut PrintContext) {
         self.left.print_node(print_context);
+        print_context.add_text(" ");
         print_context.add_text(&self.operator);
         self.right.print_node(print_context);
     }
@@ -1160,8 +1162,9 @@ impl Node for UnaryExpression {
         if self.prefix {
             print_context.add_start_loc_text(&self.loc.start, &self.operator);
             self.argument.print_node(print_context);
+        } else {
+            print_context.add_text("UnaryExpression prefix=false");
         }
-        print_context.add_text("UnaryExpression prefix=false");
     }
 }
 
@@ -1216,9 +1219,10 @@ impl Node for UpdateExpression {
         if self.prefix {
             print_context.add_start_loc_text(&self.loc.start, &self.operator.clone());
             self.argument.print_node(print_context);
+        } else {
+            self.argument.print_node(print_context);
+            print_context.add_end_loc_text(&self.loc.end, &self.operator.clone());
         }
-        self.argument.print_node(print_context);
-        print_context.add_end_loc_text(&self.loc.start, &self.operator.clone());
     }
 }
 
@@ -1271,12 +1275,15 @@ impl Node for MemberExpression {
     }
     fn print_node_inner(&self, print_context: &mut PrintContext) {
         if self.computed {
-            return self.object.print_node(print_context)
-                + "["
-                + &self.property.print_node(print_context)
-                + "]";
+            self.object.print_node(print_context);
+            print_context.add_text("[");
+            self.property.print_node(print_context);
+            print_context.add_end_loc_text(&self.loc.end, "]");
+        } else {
+            self.object.print_node(print_context);
+            print_context.add_text(".");
+            self.property.print_node(print_context);
         }
-        self.object.print_node(print_context) + "." + &self.property.print_node(print_context)
     }
 }
 
@@ -1328,11 +1335,11 @@ impl Node for ConditionalExpression {
         &self.loc
     }
     fn print_node_inner(&self, print_context: &mut PrintContext) {
-        self.test.print_node(print_context)
-            + "?"
-            + &self.consequent.print_node(print_context)
-            + ":"
-            + &self.alternate.print_node(print_context)
+        self.test.print_node(print_context);
+        print_context.add_text("?");
+        self.consequent.print_node(print_context);
+        print_context.add_text(":");
+        self.alternate.print_node(print_context);
     }
 }
 
@@ -1381,6 +1388,8 @@ impl Node for CallExpression {
         &self.loc
     }
     fn print_node_inner(&self, print_context: &mut PrintContext) {
+        self.callee.print_node(print_context);
+        print_context.add_text("(");
         for (i, node) in self.arguments.iter().enumerate() {
             node.print_node(print_context);
             let is_last = i == self.arguments.len() - 1;
@@ -1388,7 +1397,7 @@ impl Node for CallExpression {
                 print_context.add_text(",");
             }
         }
-        self.callee.print_node(print_context) + "(" + ")"
+        print_context.add_end_loc_text(&self.loc.end, ")");
     }
 }
 
@@ -1437,6 +1446,9 @@ impl Node for NewExpression {
         &self.loc
     }
     fn print_node_inner(&self, print_context: &mut PrintContext) {
+        print_context.add_start_loc_text(&self.loc.start, "new");
+        self.callee.print_node(print_context);
+        print_context.add_text("(");
         for (i, node) in self.arguments.iter().enumerate() {
             node.print_node(print_context);
             let is_last = i == self.arguments.len() - 1;
@@ -1444,7 +1456,7 @@ impl Node for NewExpression {
                 print_context.add_text(",");
             }
         }
-        "new ".to_string() + &self.callee.print_node(print_context) + "(" + &a.join(",") + ")"
+        print_context.add_end_loc_text(&self.loc.end, ")");
     }
 }
 
@@ -1494,30 +1506,20 @@ impl Node for ForStatement {
         &self.loc
     }
     fn print_node_inner(&self, print_context: &mut PrintContext) {
-        let init_str = if let Some(init) = &self.init {
-            &init.print_node(print_context)
-        } else {
-            ""
-        };
-        let test_str = if let Some(test) = &self.test {
-            &test.print_node(print_context)
-        } else {
-            ""
-        };
-        let update_str = if let Some(update) = &self.update {
-            &update.print_node(print_context)
-        } else {
-            ""
-        };
-        "for".to_string()
-            + "("
-            + init_str
-            + ";"
-            + test_str
-            + ";"
-            + update_str
-            + ")"
-            + &self.body.print_node(print_context)
+        print_context.add_start_loc_text(&self.loc.start, "for(");
+        if let Some(init) = &self.init {
+            init.print_node(print_context);
+        }
+        print_context.add_text(";");
+        if let Some(test) = &self.test {
+            test.print_node(print_context);
+        }
+        print_context.add_text(";");
+        if let Some(update) = &self.update {
+            update.print_node(print_context);
+        }
+        print_context.add_text(")");
+        self.body.print_node(print_context);
     }
 }
 
@@ -1564,13 +1566,12 @@ impl Node for ForInStatement {
         &self.loc
     }
     fn print_node_inner(&self, print_context: &mut PrintContext) {
-        "for".to_string()
-            + "("
-            + &self.left.print_node(print_context)
-            + " in "
-            + &self.right.print_node(print_context)
-            + ")"
-            + &self.body.print_node(print_context)
+        print_context.add_start_loc_text(&self.loc.start, "for(");
+        self.left.print_node(print_context);
+        print_context.add_text(" in");
+        self.right.print_node(print_context);
+        print_context.add_text(")");
+        self.body.print_node(print_context);
     }
 }
 
@@ -1609,10 +1610,10 @@ impl Node for WhileStatement {
         &self.loc
     }
     fn print_node_inner(&self, print_context: &mut PrintContext) {
-        "while(".to_string()
-            + &self.test.print_node(print_context)
-            + ")"
-            + &self.body.print_node(print_context)
+        print_context.add_start_loc_text(&self.loc.start, "while(");
+        self.test.print_node(print_context);
+        print_context.add_text(")");
+        self.body.print_node(print_context);
     }
 }
 
@@ -1651,11 +1652,11 @@ impl Node for DoWhileStatement {
         &self.loc
     }
     fn print_node_inner(&self, print_context: &mut PrintContext) {
-        "do{".to_string()
-            + &self.body.print_node(print_context)
-            + "}while("
-            + &self.test.print_node(print_context)
-            + ")"
+        print_context.add_start_loc_text(&self.loc.start, "do{");
+        self.body.print_node(print_context);
+        print_context.add_text("}while(");
+        self.test.print_node(print_context);
+        print_context.add_end_loc_text(&self.loc.end, ")");
     }
 }
 
@@ -1702,6 +1703,9 @@ impl Node for FunctionDeclaration {
         &self.loc
     }
     fn print_node_inner(&self, print_context: &mut PrintContext) {
+        print_context.add_start_loc_text(&self.loc.start, "function");
+        self.id.print_node(print_context);
+        print_context.add_text("(");
         for (i, node) in self.params.iter().enumerate() {
             node.print_node(print_context);
             let is_last = i == self.params.len() - 1;
@@ -1709,11 +1713,8 @@ impl Node for FunctionDeclaration {
                 print_context.add_text(",");
             }
         }
-        "function ".to_string()
-            + &self.id.print_node(print_context)
-            + "("
-            + ")"
-            + &self.body.print_node(print_context)
+        print_context.add_text(")");
+        self.body.print_node(print_context);
     }
 }
 
@@ -1765,6 +1766,11 @@ impl Node for FunctionExpression {
         &self.loc
     }
     fn print_node_inner(&self, print_context: &mut PrintContext) {
+        print_context.add_start_loc_text(&self.loc.start, "function");
+        if let Some(id) = &self.id {
+            id.print_node(print_context);
+        }
+        print_context.add_text("(");
         for (i, node) in self.params.iter().enumerate() {
             node.print_node(print_context);
             let is_last = i == self.params.len() - 1;
@@ -1772,11 +1778,8 @@ impl Node for FunctionExpression {
                 print_context.add_text(",");
             }
         }
-        "/*".to_string()
-            + &self.loc.start.line.to_string()
-            + "*/function("
-            + ")"
-            + &self.body.print_node(print_context)
+        print_context.add_text(")");
+        self.body.print_node(print_context);
     }
 }
 
@@ -1825,6 +1828,7 @@ impl Node for ArrowFunctionExpression {
         &self.loc
     }
     fn print_node_inner(&self, print_context: &mut PrintContext) {
+        print_context.add_start_loc_text(&self.loc.start, "(");
         for (i, node) in self.params.iter().enumerate() {
             node.print_node(print_context);
             let is_last = i == self.params.len() - 1;
@@ -1832,7 +1836,8 @@ impl Node for ArrowFunctionExpression {
                 print_context.add_text(",");
             }
         }
-        "(".to_string() + ")=>" + &self.body.print_node(print_context)
+        print_context.add_text(")");
+        self.body.print_node(print_context);
     }
 }
 
@@ -1872,7 +1877,7 @@ impl Node for ThisExpression {
         &self.loc
     }
     fn print_node_inner(&self, print_context: &mut PrintContext) {
-        "this".to_string()
+        print_context.add_start_loc_text(&self.loc.start, "this");
     }
 }
 
@@ -1911,7 +1916,9 @@ impl Node for AssignmentPattern {
         &self.loc
     }
     fn print_node_inner(&self, print_context: &mut PrintContext) {
-        self.left.print_node(print_context) + "=" + &self.right.print_node(print_context)
+        self.left.print_node(print_context);
+        print_context.add_text("=");
+        self.right.print_node(print_context);
     }
 }
 
@@ -1948,10 +1955,11 @@ impl Node for BlockStatement {
         &self.loc
     }
     fn print_node_inner(&self, print_context: &mut PrintContext) {
+        print_context.add_start_loc_text(&self.loc.start, "{");
         for node in &self.body {
             node.print_node(print_context)
         }
-        "{".to_string() + &a.join("\n") + &context.padding(&self.loc.end) + "}"
+        print_context.add_end_loc_text(&self.loc.end, "}");
     }
 }
 
@@ -1998,18 +2006,13 @@ impl Node for IfStatement {
         &self.loc
     }
     fn print_node_inner(&self, print_context: &mut PrintContext) {
+        print_context.add_start_loc_text(&self.loc.start, "if(");
+        self.test.print_node(print_context);
+        print_context.add_text(")");
+        self.consequent.print_node(print_context);
         if let Some(alternate) = &self.alternate {
-            return "if(".to_string()
-                + &self.test.print_node(print_context)
-                + ")"
-                + &self.consequent.print_node(print_context)
-                + "\nelse "
-                + &alternate.print_node(print_context);
+            alternate.print_node(print_context);
         }
-        "if(".to_string()
-            + &self.test.print_node(print_context)
-            + ")"
-            + &self.consequent.print_node(print_context)
     }
 }
 
@@ -2056,16 +2059,15 @@ impl Node for TryStatement {
         &self.loc
     }
     fn print_node_inner(&self, print_context: &mut PrintContext) {
-        let text = "try".to_string() + &self.block.print_node(print_context);
-        let mut catch_text = "".to_string();
-        let mut finally_text = "".to_string();
+        print_context.add_start_loc_text(&self.loc.start, "try");
+        self.block.print_node(print_context);
         if let Some(handle) = &self.handle {
-            catch_text = handle.print_node(print_context)
+            handle.print_node(print_context)
         }
         if let Some(finalizer) = &self.finalizer {
-            finally_text = "finally ".to_string() + &finalizer.print_node(print_context);
+            print_context.add_text("finally");
+            finalizer.print_node(print_context);
         }
-        text + &catch_text + &finally_text
     }
 }
 
@@ -2109,13 +2111,12 @@ impl Node for CatchClause {
         &self.loc
     }
     fn print_node_inner(&self, print_context: &mut PrintContext) {
+        print_context.add_start_loc_text(&self.loc.start, "catch(");
         if let Some(param) = &self.param {
-            return "catch(".to_string()
-                + &param.print_node(print_context)
-                + ")"
-                + &self.body.print_node(print_context);
+            param.print_node(print_context);
         }
-        "catch()".to_string() + &self.body.print_node(print_context)
+        print_context.add_text(")");
+        self.body.print_node(print_context);
     }
 }
 
@@ -2152,10 +2153,10 @@ impl Node for ReturnStatement {
         &self.loc
     }
     fn print_node_inner(&self, print_context: &mut PrintContext) {
+        print_context.add_start_loc_text(&self.loc.start, "return");
         if let Some(argument) = &self.argument {
-            return "return ".to_string() + &argument.print_node(print_context);
+            argument.print_node(print_context);
         }
-        "return".to_string()
     }
 }
 
@@ -2199,14 +2200,13 @@ impl Node for SwitchStatement {
         &self.loc
     }
     fn print_node_inner(&self, print_context: &mut PrintContext) {
+        print_context.add_start_loc_text(&self.loc.start, "switch(");
+        self.discriminant.print_node(print_context);
+        print_context.add_text("){");
         for node in &self.cases {
             node.print_node(print_context)
         }
-        "switch(".to_string()
-            + &self.discriminant.print_node(print_context)
-            + "){"
-            + &a.join("\n")
-            + "}"
+        print_context.add_end_loc_text(&self.loc.end, "}");
     }
 }
 
@@ -2250,13 +2250,16 @@ impl Node for SwitchCase {
         &self.loc
     }
     fn print_node_inner(&self, print_context: &mut PrintContext) {
+        if let Some(test) = &self.test {
+            print_context.add_start_loc_text(&self.loc.start, "case");
+            test.print_node(print_context);
+            print_context.add_text(":");
+        } else {
+            print_context.add_start_loc_text(&self.loc.start, "default:");
+        }
         for node in &self.consequent {
             node.print_node(print_context)
         }
-        if let Some(test) = &self.test {
-            return "case ".to_string() + &test.print_node(print_context) + ":\n" + &a.join("\n");
-        }
-        "default:\n".to_string() + &a.join("\n")
     }
 }
 
@@ -2295,7 +2298,7 @@ impl Node for LabeledStatement {
         &self.loc
     }
     fn print_node_inner(&self, print_context: &mut PrintContext) {
-        "unsupported LabeledStatement".to_string()
+        print_context.add_start_loc_text(&self.loc.start, "unsupported LabeledStatement");
     }
 }
 
@@ -2332,10 +2335,10 @@ impl Node for BreakStatement {
         &self.loc
     }
     fn print_node_inner(&self, print_context: &mut PrintContext) {
+        print_context.add_start_loc_text(&self.loc.start, "break");
         if let Some(label) = &self.label {
-            return "break ".to_string() + &label.print_node(print_context);
+            label.print_node(print_context);
         }
-        "break".to_string()
     }
 }
 
@@ -2372,10 +2375,10 @@ impl Node for ContinueStatement {
         &self.loc
     }
     fn print_node_inner(&self, print_context: &mut PrintContext) {
+        print_context.add_start_loc_text(&self.loc.start, "continue");
         if let Some(label) = &self.label {
-            return "continue ".to_string() + &label.print_node(print_context);
+            label.print_node(print_context);
         }
-        "continue".to_string()
     }
 }
 
@@ -2412,6 +2415,7 @@ impl Node for ThrowStatement {
         &self.loc
     }
     fn print_node_inner(&self, print_context: &mut PrintContext) {
-        "throw ".to_string() + &self.argument.print_node(print_context)
+        print_context.add_start_loc_text(&self.loc.start, "throw");
+        self.argument.print_node(print_context);
     }
 }

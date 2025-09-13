@@ -21,7 +21,7 @@ pub fn parse_expression(parser: &mut Parser, min_level: u8) -> Result<Box<dyn No
         left = Box::new(Identity::new(
             parser.current.to_string(),
             start_loc.clone(),
-            parser.last_loc.clone(),
+            start_loc.clone(),
         ));
         parser.next()?;
     } else if *parser.current == Token::Function {
@@ -85,21 +85,18 @@ pub fn parse_expression(parser: &mut Parser, min_level: u8) -> Result<Box<dyn No
         left = Box::new(BooleanLiteral::new(
             true,
             start_loc.clone(),
-            parser.last_loc.clone(),
+            start_loc.clone(),
         ));
     } else if *parser.current == Token::False {
         parser.next()?;
         left = Box::new(BooleanLiteral::new(
             false,
             start_loc.clone(),
-            parser.last_loc.clone(),
+            start_loc.clone(),
         ));
     } else if *parser.current == Token::This {
         parser.next()?;
-        left = Box::new(ThisExpression::new(
-            start_loc.clone(),
-            parser.last_loc.clone(),
-        ));
+        left = Box::new(ThisExpression::new(start_loc.clone(), start_loc.clone()));
     } else if *parser.current == Token::Null {
         parser.next()?;
         left = Box::new(NullLiteral::new(start_loc.clone(), parser.last_loc.clone()));
@@ -108,14 +105,14 @@ pub fn parse_expression(parser: &mut Parser, min_level: u8) -> Result<Box<dyn No
         left = Box::new(Identity::new(
             "undefined".to_string(),
             start_loc.clone(),
-            parser.last_loc.clone(),
+            start_loc.clone(),
         ));
     } else if let Token::Regex(pattern, flags) = &*parser.current {
         left = Box::new(RegExpLiteral::new(
             pattern.to_string(),
             flags.to_string(),
             start_loc.clone(),
-            parser.last_loc.clone(),
+            start_loc.clone(),
         ));
         parser.next()?;
     } else if let Token::TemplateStr(s) = &*parser.current {
@@ -127,12 +124,14 @@ pub fn parse_expression(parser: &mut Parser, min_level: u8) -> Result<Box<dyn No
                 parser.last_loc.clone(),
             ))],
             start_loc.clone(),
-            parser.last_loc.clone(),
+            start_loc.clone(),
         ));
         parser.next()?;
     } else if *parser.current == Token::New {
         parser.next()?;
-        let callee = parse_expression(parser, 18)?;
+        parser.in_new_expression_init = true;
+        let callee = parse_expression(parser, 17)?;
+        parser.in_new_expression_init = false;
         let mut arguments: Vec<Box<dyn Node>> = vec![];
         if is_ctrl_word(&parser.current, "(") {
             parser.next()?;
@@ -166,15 +165,15 @@ pub fn parse_expression(parser: &mut Parser, min_level: u8) -> Result<Box<dyn No
     } else if let Token::Variable(s) = &*parser.current {
         left = Box::new(Identity::new(
             s.to_string(),
-            start_loc.clone(),
-            parser.last_loc.clone(),
+            parser.loc.clone(),
+            parser.loc.clone(),
         ));
         parser.next()?;
     } else if let Token::Digit(d) = &*parser.current {
         left = Box::new(NumericLiteral::new(
             d.to_string(),
             start_loc.clone(),
-            parser.last_loc.clone(),
+            start_loc.clone(),
         ));
         parser.next()?;
     } else if let Token::String(d, is_single_quoted) = &*parser.current {
@@ -182,7 +181,7 @@ pub fn parse_expression(parser: &mut Parser, min_level: u8) -> Result<Box<dyn No
             d.to_string(),
             *is_single_quoted,
             start_loc.clone(),
-            parser.last_loc.clone(),
+            start_loc.clone(),
         ));
         parser.next()?;
     } else {
@@ -193,6 +192,7 @@ pub fn parse_expression(parser: &mut Parser, min_level: u8) -> Result<Box<dyn No
     }
     parser.is_identity_keyword = false;
     loop {
+        let left_loc = start_loc.clone();
         let operator = &*Rc::clone(&parser.current);
         match operator {
             Token::Control(s) => match s.as_str() {
@@ -225,7 +225,6 @@ pub fn parse_expression(parser: &mut Parser, min_level: u8) -> Result<Box<dyn No
         if l < min_level {
             break;
         }
-
         match &*operator {
             Token::Control(s) => match s.as_str() {
                 "," => {
@@ -238,13 +237,13 @@ pub fn parse_expression(parser: &mut Parser, min_level: u8) -> Result<Box<dyn No
                         exp.push(right);
                         left = Box::new(SequenceExpression::new(
                             exp,
-                            start_loc.clone(),
+                            left_loc,
                             parser.last_loc.clone(),
                         ))
                     } else {
                         left = Box::new(SequenceExpression::new(
                             vec![left, right],
-                            start_loc.clone(),
+                            left_loc,
                             parser.last_loc.clone(),
                         ))
                     }
@@ -257,7 +256,7 @@ pub fn parse_expression(parser: &mut Parser, min_level: u8) -> Result<Box<dyn No
                         left,
                         s.to_string(),
                         right,
-                        start_loc.clone(),
+                        left_loc,
                         parser.last_loc.clone(),
                     ))
                 }
@@ -273,7 +272,7 @@ pub fn parse_expression(parser: &mut Parser, min_level: u8) -> Result<Box<dyn No
                     left = Box::new(ArrowFunctionExpression::new(
                         vec![left],
                         right,
-                        start_loc.clone(),
+                        left_loc,
                         parser.last_loc.clone(),
                     ))
                 }
@@ -282,10 +281,10 @@ pub fn parse_expression(parser: &mut Parser, min_level: u8) -> Result<Box<dyn No
                     parser.is_identity_keyword = true;
                     let right = parse_expression(parser, l + 1)?;
                     left = Box::new(MemberExpression::new(
-                        right,
                         left,
+                        right,
                         false,
-                        start_loc.clone(),
+                        left_loc,
                         parser.last_loc.clone(),
                     ))
                 }
@@ -298,7 +297,7 @@ pub fn parse_expression(parser: &mut Parser, min_level: u8) -> Result<Box<dyn No
                         left,
                         s.to_string(),
                         right,
-                        start_loc.clone(),
+                        left_loc,
                         parser.last_loc.clone(),
                     ))
                 }
@@ -310,7 +309,7 @@ pub fn parse_expression(parser: &mut Parser, min_level: u8) -> Result<Box<dyn No
                         left,
                         s.to_string(),
                         right,
-                        start_loc.clone(),
+                        left_loc,
                         parser.last_loc.clone(),
                     ))
                 }
@@ -320,7 +319,7 @@ pub fn parse_expression(parser: &mut Parser, min_level: u8) -> Result<Box<dyn No
                         s.to_string(),
                         false,
                         left,
-                        start_loc.clone(),
+                        left_loc,
                         parser.last_loc.clone(),
                     ));
                 }
@@ -334,11 +333,14 @@ pub fn parse_expression(parser: &mut Parser, min_level: u8) -> Result<Box<dyn No
                         left,
                         consequent,
                         alternate,
-                        start_loc.clone(),
+                        left_loc,
                         parser.last_loc.clone(),
                     ));
                 }
                 "(" => {
+                    if parser.in_new_expression_init {
+                        break;
+                    }
                     parser.regex_allowed = true;
                     parser.next()?;
                     let mut arguments: Vec<Box<dyn Node>> = vec![];
@@ -362,7 +364,7 @@ pub fn parse_expression(parser: &mut Parser, min_level: u8) -> Result<Box<dyn No
                     left = Box::new(CallExpression::new(
                         left,
                         arguments,
-                        start_loc.clone(),
+                        left_loc,
                         parser.last_loc.clone(),
                     ));
                 }
@@ -372,10 +374,10 @@ pub fn parse_expression(parser: &mut Parser, min_level: u8) -> Result<Box<dyn No
                     let right = parse_expression(parser, 0)?;
                     expect(parser, "]")?;
                     left = Box::new(MemberExpression::new(
-                        right,
                         left,
+                        right,
                         true,
-                        start_loc.clone(),
+                        left_loc,
                         parser.last_loc.clone(),
                     ));
                 }
@@ -396,7 +398,7 @@ pub fn parse_expression(parser: &mut Parser, min_level: u8) -> Result<Box<dyn No
                     left,
                     operator.to_string(),
                     right,
-                    start_loc.clone(),
+                    left_loc,
                     parser.last_loc.clone(),
                 ))
             }

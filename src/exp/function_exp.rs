@@ -19,8 +19,8 @@ pub fn build_function(parser: &mut Parser, is_declaration: bool) -> Result<Box<d
     if let Token::Variable(s) = &*parser.current {
         id = Some(Box::new(Identity::new(
             s.to_string(),
-            start_loc.clone(),
-            parser.last_loc.clone(),
+            parser.loc.clone(),
+            parser.loc.clone(),
         )));
         parser.next()?;
     } else if is_declaration {
@@ -63,8 +63,8 @@ pub fn handle_function_params(parser: &mut Parser) -> Result<Vec<Box<dyn Node>>,
         } else if let Token::Variable(s) = &*parser.current {
             let param = Box::new(Identity::new(
                 s.to_string(),
-                start_loc.clone(),
-                parser.last_loc.clone(),
+                parser.loc.clone(),
+                parser.loc.clone(),
             ));
             parser.next()?;
             if is_ctrl_word(&parser.current, "=") {
@@ -74,8 +74,8 @@ pub fn handle_function_params(parser: &mut Parser) -> Result<Vec<Box<dyn Node>>,
                 params.push(Box::new(AssignmentPattern::new(
                     param,
                     default_value,
-                    start_loc.clone(),
-                    parser.last_loc.clone(),
+                    parser.loc.clone(),
+                    parser.loc.clone(),
                 )));
             } else {
                 params.push(param);
@@ -103,6 +103,12 @@ fn handle_object(parser: &mut Parser) -> Result<Box<dyn Node>, String> {
             break;
         } else if let Token::Variable(s) = &*parser.current {
             let name = s.to_string();
+            let property_start_loc = parser.loc.clone();
+            let key = Box::new(Identity::new(
+                name.to_string(),
+                parser.loc.clone(),
+                parser.loc.clone(),
+            ));
             parser.next()?;
             if is_ctrl_word(&parser.current, ":") {
                 parser.regex_allowed = true;
@@ -110,24 +116,16 @@ fn handle_object(parser: &mut Parser) -> Result<Box<dyn Node>, String> {
                 if is_ctrl_word(&parser.current, "{") {
                     let right = handle_object(parser)?;
                     properties.push(Box::new(ObjectProperty::new(
-                        Box::new(Identity::new(
-                            name.to_string(),
-                            start_loc.clone(),
-                            parser.last_loc.clone(),
-                        )),
+                        key,
                         right,
-                        start_loc.clone(),
+                        property_start_loc,
                         parser.last_loc.clone(),
                     )))
                 } else if is_ctrl_word(&parser.current, "[") {
                     properties.push(Box::new(ObjectProperty::new(
-                        Box::new(Identity::new(
-                            name.to_string(),
-                            start_loc.clone(),
-                            parser.last_loc.clone(),
-                        )),
+                        key,
                         handle_array(parser)?,
-                        start_loc.clone(),
+                        property_start_loc.clone(),
                         parser.last_loc.clone(),
                     )))
                 } else {
@@ -204,10 +202,11 @@ fn handle_array(parser: &mut Parser) -> Result<Box<dyn Node>, String> {
         } else if is_ctrl_word(&parser.current, ",") {
             parser.next()?;
         } else if let Token::Variable(s) = &*parser.current {
+            let param_loc_start = parser.loc.clone();
             let name = Box::new(Identity::new(
                 s.to_string(),
-                start_loc.clone(),
-                parser.last_loc.clone(),
+                parser.loc.clone(),
+                parser.loc.clone(),
             ));
             parser.next()?;
             if is_ctrl_word(&parser.current, "=") {
@@ -215,7 +214,7 @@ fn handle_array(parser: &mut Parser) -> Result<Box<dyn Node>, String> {
                 elements.push(Box::new(AssignmentPattern::new(
                     name,
                     parse_expression(parser, 2)?,
-                    start_loc.clone(),
+                    param_loc_start,
                     parser.last_loc.clone(),
                 )));
             } else {

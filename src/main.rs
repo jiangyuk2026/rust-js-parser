@@ -33,11 +33,14 @@ fn main() -> Result<(), String> {
         // println!("{:#?}", str);
 
         str = str.replace("\r\n", "\n");
+        str = str.replace("\r", "\n");
 
         let mut parser = Parser::new(str)?;
         let ast = parser.parse();
 
-        println!("{:#?}", ast);
+        if path == "b.js" {
+            println!("{:#?}", ast);
+        }
         if ast.is_err() {
             println!("{:#?}", parser.loc);
             println!("{:#?}", ast);
@@ -48,7 +51,7 @@ fn main() -> Result<(), String> {
             let out_path = format!("{}/{}/{}", env!("CARGO_MANIFEST_DIR"), "out", path);
             let print_context = &mut PrintContext::new();
             for node in ast?.iter() {
-               node.print_node(print_context);
+                node.print_node(print_context);
             }
             // println!("{:?}", result_txt);
             fs::write(out_path, &print_context.output).expect("Failed to write to file");

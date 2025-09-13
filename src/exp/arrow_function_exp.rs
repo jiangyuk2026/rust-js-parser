@@ -142,14 +142,14 @@ fn build_possible_object(parser: &mut Parser) -> Result<Box<dyn Node>, String> {
                     key,
                     build_possible_object(parser)?,
                     start_loc.clone(),
-                    parser.loc.clone(),
+                    parser.last_loc.clone(),
                 )));
             } else if is_ctrl_word(&parser.current, "[") {
                 properties.push(Box::new(ObjectProperty::new(
                     key,
                     build_possible_array(parser)?,
                     start_loc.clone(),
-                    parser.loc.clone(),
+                    parser.last_loc.clone(),
                 )));
             } else {
                 parser.is_arrow_function = IsArrowFunction::Impossible;
@@ -157,7 +157,7 @@ fn build_possible_object(parser: &mut Parser) -> Result<Box<dyn Node>, String> {
                     key,
                     parse_expression(parser, 2)?,
                     start_loc.clone(),
-                    parser.loc.clone(),
+                    parser.last_loc.clone(),
                 )));
             }
         } else if is_ctrl_word(&parser.current, "=") {
@@ -169,7 +169,7 @@ fn build_possible_object(parser: &mut Parser) -> Result<Box<dyn Node>, String> {
                 key,
                 default_value,
                 start_loc.clone(),
-                parser.loc.clone(),
+                parser.last_loc.clone(),
             )))
         }
     }
@@ -178,7 +178,7 @@ fn build_possible_object(parser: &mut Parser) -> Result<Box<dyn Node>, String> {
     Ok(Box::new(ObjectExpression::new(
         properties,
         start_loc.clone(),
-        parser.loc.clone(),
+        parser.last_loc.clone(),
     )))
 }
 
